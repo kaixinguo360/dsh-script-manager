@@ -1,0 +1,6 @@
+- insert:
+    - id: script-manager
+      name: "dsh-script-manager"
+      config:
+        scriptsDir: ~/.dsh/scripts
+        maxExecutionTime: 30000
