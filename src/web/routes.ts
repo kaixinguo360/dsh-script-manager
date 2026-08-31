@@ -15,6 +15,7 @@
  */
 
 import type { ScriptStore } from '../script-store.js';
+import { ValidationError } from '../script-store.js';
 
 interface WebServerRoute {
   kind: 'exact' | 'prefixes';
@@ -56,6 +57,7 @@ function parseQuery(req: any): Record<string, string> {
 export function registerScriptRoutes(
   injected: { webServer?: WebServerContext },
   store: ScriptStore,
+  onChanged?: () => Promise<void> | void,
 ): () => void {
   const webServer = injected?.webServer;
   if (!webServer || typeof webServer.register !== 'function') {
@@ -92,6 +94,7 @@ export function registerScriptRoutes(
           if (id !== null) return json(res, 400, { error: 'POST /api/scripts does not accept an id path segment' });
           const body = await readBody(req);
           const script = await store.create(body as any);
+          if (onChanged) await onChanged();
           return json(res, 200, script);
         }
 
@@ -99,6 +102,7 @@ export function registerScriptRoutes(
           if (id === null) return json(res, 400, { error: 'PUT /api/scripts requires /<id>' });
           const body = await readBody(req);
           const script = await store.update(id, body as any);
+          if (onChanged) await onChanged();
           return json(res, 200, script);
         }
 
@@ -106,12 +110,13 @@ export function registerScriptRoutes(
           if (id === null) return json(res, 400, { error: 'DELETE /api/scripts requires /<id>' });
           const ok = await store.delete(id);
           if (!ok) return json(res, 404, { error: 'Script not found: ' + id });
+          if (onChanged) await onChanged();
           return json(res, 200, { success: true });
         }
 
         return json(res, 405, { error: 'Method not allowed: ' + method });
       } catch (error: any) {
-        const status = error instanceof SyntaxError ? 400 : 500;
+        const status = (error instanceof SyntaxError || error instanceof ValidationError) ? 400 : 500;
         json(res, status, { error: error instanceof Error ? error.message : String(error) });
       }
     },
