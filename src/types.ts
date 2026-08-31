@@ -47,6 +47,8 @@ export interface ScriptSummary {
   author: string;
   tags: string[];
   registerAsTool: boolean;
+  /** 若 registerAsTool=true，动态注册的 tool 名称（缺省按 id 派生） */
+  toolName?: string;
   metadata: ScriptMetadata;
 }
 

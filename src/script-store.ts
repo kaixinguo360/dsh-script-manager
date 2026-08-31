@@ -8,6 +8,29 @@ import { readFile, writeFile, mkdir, readdir, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import type { ScriptDefinition, ScriptMetadata, ScriptSummary } from './types.js';
+import { isValidToolName } from './script-tool-registry.js';
+
+/** 输入校验错误（REST 层映射为 HTTP 400）。 */
+export class ValidationError extends Error {}
+
+/** 校验单个字段；返回规范化后的值或抛 ValidationError。 */
+function requireNonEmpty(value: unknown, field: string): string {
+  const text = value === undefined || value === null ? '' : String(value).trim();
+  if (!text) throw new ValidationError(field + ' is required');
+  return text;
+}
+function optionalString(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).trim();
+  return text === '' ? undefined : text;
+}
+function validateToolName(value: unknown): string | undefined {
+  const text = optionalString(value);
+  if (text !== undefined && !isValidToolName(text)) {
+    throw new ValidationError('toolName must match ^[a-z_][a-z0-9_]*$ when provided');
+  }
+  return text;
+}
 
 /** 展开 ~ 为用户主目录 */
 function expandPath(path: string): string {
@@ -96,28 +119,55 @@ export class ScriptStore {
     }
   }
 
-  /** 创建脚本 */
+  /** 创建脚本（全字段校验） */
   async create(script: Omit<ScriptDefinition, 'metadata'>): Promise<ScriptDefinition> {
-    // 校验：id 非空、合法字符、不重复（避免覆盖同名脚本）
+    // id：非空、合法字符、不重复（避免覆盖同名脚本与路径穿越）
     const id = (script.id ?? '').trim();
-    if (!id) throw new Error('Script id is required');
+    if (!id) throw new ValidationError('Script id is required');
     if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
-      throw new Error('Script id must match ^[a-z0-9][a-z0-9-]*$ (lowercase letters, digits, hyphens)');
+      throw new ValidationError('Script id must match ^[a-z0-9][a-z0-9-]*$ (lowercase letters, digits, hyphens)');
     }
     if (this.index.has(id) || await this.get(id) !== undefined) {
-      throw new Error('Script already exists: ' + id);
+      throw new ValidationError('Script already exists: ' + id);
     }
+    // name / code：必填（执行与回显必需）
+    const name = requireNonEmpty(script.name, 'Script name');
+    const code = requireNonEmpty(script.code, 'Script code');
+    // registerAsTool：必须为布尔
+    if (script.registerAsTool !== undefined && typeof script.registerAsTool !== 'boolean') {
+      throw new ValidationError('registerAsTool must be a boolean');
+    }
+    // tags：必须为字符串数组
+    if (script.tags !== undefined &&
+        (!Array.isArray(script.tags) || script.tags.some(t => typeof t !== 'string'))) {
+      throw new ValidationError('tags must be an array of strings');
+    }
+    // toolName：提供且非空时必须合法
+    const toolName = validateToolName(script.toolName);
+    const description = optionalString(script.description) ?? '';
+    const version = optionalString(script.version) ?? '0.1.0';
+    const author = optionalString(script.author) ?? '';
+
     const now = new Date().toISOString();
+    // 注意：不要残留值为 undefined 的 toolName 键（lossless JSON 校验要求）
     const fullScript: ScriptDefinition = {
       ...script,
       id,
+      name,
+      code,
+      description,
+      version,
+      author,
+      tags: script.tags ? (script.tags as string[]) : [],
+      registerAsTool: script.registerAsTool === true,
+      ...(toolName !== undefined ? { toolName } : {}),
       metadata: { createdAt: now, updatedAt: now, executionCount: 0 },
-    };
+    } as ScriptDefinition;
     await writeFile(this.getScriptPath(id), JSON.stringify(fullScript, null, 2), 'utf-8');
     this.index.set(id, {
       id: fullScript.id, name: fullScript.name, description: fullScript.description,
       version: fullScript.version, author: fullScript.author, tags: fullScript.tags,
-      registerAsTool: fullScript.registerAsTool, metadata: fullScript.metadata,
+      registerAsTool: fullScript.registerAsTool, ...(fullScript.toolName !== undefined ? { toolName: fullScript.toolName } : {}), metadata: fullScript.metadata,
     });
     await this.saveIndex();
     return fullScript;
@@ -129,11 +179,23 @@ export class ScriptStore {
     if (!existing) throw new Error("Script not found: " + scriptId);
     const nextId = (patch.id !== undefined ? String(patch.id).trim() : scriptId) || scriptId;
     if (!/^[a-z0-9][a-z0-9-]*$/.test(nextId)) {
-      throw new Error('Script id must match ^[a-z0-9][a-z0-9-]*$ (lowercase letters, digits, hyphens)');
+      throw new ValidationError('Script id must match ^[a-z0-9][a-z0-9-]*$ (lowercase letters, digits, hyphens)');
     }
     if (nextId !== scriptId && await this.get(nextId) !== undefined) {
-      throw new Error("Script already exists: " + nextId);
+      throw new ValidationError("Script already exists: " + nextId);
     }
+    // patch 字段校验（仅校验显式提供的字段）
+    if (patch.name !== undefined) requireNonEmpty(patch.name, 'Script name');
+    if (patch.code !== undefined) requireNonEmpty(patch.code, 'Script code');
+    if (patch.registerAsTool !== undefined && typeof patch.registerAsTool !== 'boolean') {
+      throw new ValidationError('registerAsTool must be a boolean');
+    }
+    if (patch.tags !== undefined &&
+        (!Array.isArray(patch.tags) || patch.tags.some(t => typeof t !== 'string'))) {
+      throw new ValidationError('tags must be an array of strings');
+    }
+    if (patch.toolName !== undefined) validateToolName(patch.toolName);
+
     const updated: ScriptDefinition = {
       ...existing, ...patch, id: nextId,
       metadata: { ...existing.metadata, ...patch.metadata, updatedAt: new Date().toISOString() },
@@ -146,7 +208,7 @@ export class ScriptStore {
     this.index.set(nextId, {
       id: updated.id, name: updated.name, description: updated.description,
       version: updated.version, author: updated.author, tags: updated.tags,
-      registerAsTool: updated.registerAsTool, metadata: updated.metadata,
+      registerAsTool: updated.registerAsTool, toolName: updated.toolName, metadata: updated.metadata,
     });
     await this.saveIndex();
     return updated;

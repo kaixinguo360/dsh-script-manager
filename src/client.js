@@ -112,14 +112,14 @@ window.__ModuleLoader__.load({
 
 		// ---- 表单映射 ----
 		function emptyForm() {
-			return { id: "", name: "", description: "", version: "0.1.0", author: "", tags: "", registerAsTool: false, code: "" };
+			return { id: "", name: "", description: "", version: "0.1.0", author: "", tags: "", registerAsTool: false, toolName: "", code: "" };
 		}
 		function scriptToForm(s) {
 			return {
 				id: s.id, name: s.name, description: s.description || "",
 				version: s.version || "", author: s.author || "",
 				tags: (s.tags || []).join(", "), registerAsTool: !!s.registerAsTool,
-				code: s.code || ""
+				toolName: s.toolName || "", code: s.code || ""
 			};
 		}
 		function formToBody(f) {
@@ -127,7 +127,9 @@ window.__ModuleLoader__.load({
 				id: (f.id || "").trim(), name: (f.name || "").trim(), description: (f.description || "").trim(),
 				version: (f.version || "").trim(), author: (f.author || "").trim(),
 				tags: (f.tags || "").split(",").map(function (t) { return t.trim(); }).filter(Boolean),
-				registerAsTool: !!f.registerAsTool, code: f.code || ""
+				registerAsTool: !!f.registerAsTool,
+				toolName: (f.toolName || "").trim() || undefined,
+				code: f.code || ""
 			};
 		}
 
@@ -269,6 +271,7 @@ window.__ModuleLoader__.load({
 				if (!/^[a-z0-9][a-z0-9-]*$/.test(body.id)) { setErr("id 只能包含小写字母、数字与连字符，且以字母/数字开头"); return; }
 				if (!body.name) { setErr("名称不能为空"); return; }
 				if (!body.code) { setErr("代码不能为空"); return; }
+				if (body.toolName && !/^[a-z_][a-z0-9_]*$/.test(body.toolName)) { setErr("工具名只能含小写字母、数字、下划线，且以字母或下划线开头（留空自动生成）"); return; }
 				setErr(null);
 				setBusy(true);
 				var request = editing ? api.update(initial.id, body) : api.create(body);
@@ -317,6 +320,10 @@ window.__ModuleLoader__.load({
 					}),
 					"注册为 agent 可调用工具"
 				),
+				form.registerAsTool
+					? field("工具名（留空自动生成 script_<id>）",
+						textInput(form.toolName, set("toolName"), "script_" + (form.id || "my_script").replace(/-/g, "_")))
+					: null,
 				field("脚本代码（async 上下文，可用 tools.* 绑定）",
 					h(CodeEditor, {
 						value: form.code,
