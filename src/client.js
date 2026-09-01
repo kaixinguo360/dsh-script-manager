@@ -67,7 +67,10 @@ window.__ModuleLoader__.load({
 			".smp-check{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--dsw-alias-label-primary);min-height:20px;align-self:flex-start}",
 			".smp-form .smp-check{align-self:flex-start!important;display:inline-flex!important}",
 			".smp-form .smp-check input[type=\"checkbox\"]{width:14px!important;max-width:14px!important;min-width:14px!important;height:14px!important;max-height:14px!important;box-sizing:border-box!important;flex:none!important;margin:0!important}",
-			"@media (max-width:640px){.smp-del-narrow{display:none}}"
+			"@media (max-width:640px){.smp-del-narrow{display:none}}",
+			"/* popupSelect（/script 弹窗）：标题不压缩、不换行（按内容完整展示）；要压缩就压缩描述 */",
+			"[role=\"listbox\"] [class$=\"_label\"]{white-space:nowrap!important;text-overflow:clip!important;overflow:visible!important;min-width:auto!important;flex:0 1 auto!important;max-width:none!important}",
+			"[role=\"listbox\"] [class$=\"_detail\"]{flex:1 1 auto!important;min-width:0!important;white-space:nowrap!important;text-overflow:ellipsis!important;overflow:hidden!important}"
 		].join("");
 		var tagId = "dsh-script-manager/smp.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=\"" + tagId + "\"]") === null) {
@@ -522,8 +525,11 @@ window.__ModuleLoader__.load({
 							var res = await fetch("/api/scripts", { signal: signal });
 							if (!res.ok) throw new Error("Failed to load scripts: " + res.status);
 							var scripts = await res.json();
+							// 名称优先作为主显示；简介超出 60 字符则以省略号压缩
 							return scripts.map(function (s) {
-								return { id: s.id, label: s.name, detail: s.description || s.id };
+								var desc = (s.description || '').trim();
+								var clipped = desc.length > 60 ? desc.slice(0, 59) + '…' : desc;
+								return { id: s.id, label: s.name, detail: clipped || s.id };
 							});
 						},
 						onSelect: async function (option, session) {
