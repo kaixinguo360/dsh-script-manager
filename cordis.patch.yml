@@ -3,4 +3,6 @@
       name: "dsh-script-manager"
       config:
         scriptsDir: ~/.dsh/scripts
-        maxExecutionTime: 30000
+        # 默认脚本执行超时（毫秒）。0 = 不限制（推荐）；
+        # 脚本级 timeoutMs / 调用级 script_run({ timeoutMs }) 可单独覆盖。
+        maxExecutionTime: 0

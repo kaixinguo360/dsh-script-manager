@@ -70,8 +70,21 @@ export class ScriptToolRegistry {
           // 必须用箭头函数：execute 被框架以无 this 方式调用，
           // 方法简写会导致 this 丢失（this.runner undefined）
           execute: async (_args: unknown, exec: unknown) => {
-            const runContext = exec as { signal?: AbortSignal; agent?: unknown; token?: unknown } | undefined;
-            const result = await this.runner.run(want.scriptId, runContext?.signal, runContext?.agent as never, runContext?.token as never);
+            const runContext = exec as { signal?: AbortSignal; agent?: unknown; token?: unknown; callId?: unknown; rootCallId?: unknown } | undefined;
+            // 透传外层执行身份：内层 tools.* 子分发事件挂在本动态工具调用之下
+            const result = await this.runner.run(
+              want.scriptId,
+              runContext?.signal,
+              runContext?.agent as never,
+              runContext?.token as never,
+              undefined,
+              runContext?.callId !== undefined && runContext?.callId !== ''
+                ? {
+                    callId: String(runContext.callId),
+                    rootCallId: String(runContext.rootCallId ?? runContext.callId),
+                  }
+                : undefined,
+            );
             return result;
           },
         } as never));

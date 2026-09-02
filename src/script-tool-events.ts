@@ -82,6 +82,8 @@ export async function executeToolCallWithEvents(
     name: toolName,
     arguments: JSON.stringify(args),
   };
+  // 触发来源不内嵌在 assistant 回合（避免视觉噪音），统一由命令处理器的
+  // 插件来源说明（系统性质）向模型交代：tool/call 事件本身已含 name/scriptId。
   const assistantMessage = createAssistantMessage({
     content: [toolCallBlock],
     source: deriveModelSource(session),

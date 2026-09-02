@@ -70,7 +70,16 @@ window.__ModuleLoader__.load({
 			"@media (max-width:640px){.smp-del-narrow{display:none}}",
 			"/* popupSelect（/script 弹窗）：标题不压缩、不换行（按内容完整展示）；要压缩就压缩描述 */",
 			"[role=\"listbox\"] [class$=\"_label\"]{white-space:nowrap!important;text-overflow:clip!important;overflow:visible!important;min-width:auto!important;flex:0 1 auto!important;max-width:none!important}",
-			"[role=\"listbox\"] [class$=\"_detail\"]{flex:1 1 auto!important;min-width:0!important;white-space:nowrap!important;text-overflow:ellipsis!important;overflow:hidden!important}"
+			"[role=\"listbox\"] [class$=\"_detail\"]{flex:1 1 auto!important;min-width:0!important;white-space:nowrap!important;text-overflow:ellipsis!important;overflow:hidden!important}",
+			"/* 移动端修复：宿主把 popupSelect(/script 候选)挂载在 uV2eYG_overlayAnchor 之下；",
+			"部分移动适配样式(如 dsh-bridge #dsh-bridge-mobile-styles @media<=768px)会对该锚点整体设置",
+			"pointer-events:none!important，导致候选全部点击穿透——点上去触发外层 dismiss，列表消失且无动作。",
+			"这里按 role 恢复弹层内容的命中测试（比桥接规则的 0,1,1 特异性更高，不受注入顺序影响）。 */",
+			"div[class*=\"uV2eYG_overlayAnchor\"] div[role=\"listbox\"]{pointer-events:auto!important}",
+			"div[class*=\"uV2eYG_overlayAnchor\"] div[role=\"listbox\"] *{pointer-events:auto!important}",
+			"div[class*=\"uV2eYG_overlayAnchor\"] [role=\"option\"]{pointer-events:auto!important}",
+			"div[class*=\"uV2eYG_overlayAnchor\"] [role=\"option\"] *{pointer-events:auto!important}",
+			"div[class*=\"uV2eYG_overlayAnchor\"] input[type=\"text\"]{pointer-events:auto!important}"
 		].join("");
 		var tagId = "dsh-script-manager/smp.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=\"" + tagId + "\"]") === null) {
@@ -115,14 +124,14 @@ window.__ModuleLoader__.load({
 
 		// ---- 表单映射 ----
 		function emptyForm() {
-			return { id: "", name: "", description: "", version: "0.1.0", author: "", tags: "", registerAsTool: false, toolName: "", code: "" };
+			return { id: "", name: "", description: "", version: "0.1.0", author: "", tags: "", registerAsTool: false, toolName: "", timeoutMs: "", code: "" };
 		}
 		function scriptToForm(s) {
 			return {
 				id: s.id, name: s.name, description: s.description || "",
 				version: s.version || "", author: s.author || "",
 				tags: (s.tags || []).join(", "), registerAsTool: !!s.registerAsTool,
-				toolName: s.toolName || "", code: s.code || ""
+				toolName: s.toolName || "", timeoutMs: (s.timeoutMs === undefined || s.timeoutMs === null) ? "" : String(s.timeoutMs), code: s.code || ""
 			};
 		}
 		function formToBody(f) {
@@ -132,6 +141,7 @@ window.__ModuleLoader__.load({
 				tags: (f.tags || "").split(",").map(function (t) { return t.trim(); }).filter(Boolean),
 				registerAsTool: !!f.registerAsTool,
 				toolName: (f.toolName || "").trim() || undefined,
+				timeoutMs: (function () { var v = String(f.timeoutMs || "").trim(); if (v === "") return undefined; var n = parseInt(v, 10); return (isFinite(n) && n > 0) ? n : undefined; })(),
 				code: f.code || ""
 			};
 		}
@@ -275,6 +285,7 @@ window.__ModuleLoader__.load({
 				if (!body.name) { setErr("名称不能为空"); return; }
 				if (!body.code) { setErr("代码不能为空"); return; }
 				if (body.toolName && !/^[a-z_][a-z0-9_]*$/.test(body.toolName)) { setErr("工具名只能含小写字母、数字、下划线，且以字母或下划线开头（留空自动生成）"); return; }
+				if (String(form.timeoutMs || "").trim() !== "" && !/^[1-9]\d*$/.test(String(form.timeoutMs).trim())) { setErr("超时需为正整数毫秒（留空 = 不限制）"); return; }
 				setErr(null);
 				setBusy(true);
 				var request = editing ? api.update(initial.id, body) : api.create(body);
@@ -327,6 +338,9 @@ window.__ModuleLoader__.load({
 					? field("工具名（留空自动生成 script_<id>）",
 						textInput(form.toolName, set("toolName"), "script_" + (form.id || "my_script").replace(/-/g, "_")))
 					: null,
+				field("执行超时（毫秒，留空 = 不限制）",
+					textInput(form.timeoutMs, set("timeoutMs"), "不限制")),
+				h("div", { className: "smp-notice", style: { marginTop: -6 } }, "超时优先级：单次调用 timeoutMs > 本脚本设置 > 插件默认（默认不限制）。超过预算将中止整个脚本。"),
 				field("脚本代码（async 上下文，可用 tools.* 绑定）",
 					h(CodeEditor, {
 						value: form.code,
@@ -532,9 +546,24 @@ window.__ModuleLoader__.load({
 								return { id: s.id, label: s.name, detail: clipped || s.id };
 							});
 						},
-						onSelect: async function (option, session) {
-							var result = await ctx.remote.commands.execute(session.sessionId, "/script " + option.id, []);
-							if (!result.ok) throw new Error(result.error ? result.error.message : "Command failed");
+						onSelect: function (option, session) {
+							// 点选即执行：宿主 popupSelect 会等到 onSelect resolve 才收起弹层，
+							// 期间一直显示“正在应用…”。脚本执行可能耗时较久（默认无上限），
+							// 原地等待会让弹窗卡住。因此不在这里等待命令执行——
+							// 先放行收起弹窗，再把 /script 命令放到后台执行
+							// （链路与直接提交 /script <id> 一致，结果/错误照常进入会话）。
+							var sid = session && session.sessionId;
+							if (!sid) throw new Error("session unavailable");
+							var id = option.id;
+							Promise.resolve().then(function () {
+								return ctx.remote.commands.execute(sid, "/script " + id, []);
+							}).then(function (result) {
+								if (result && !result.ok) {
+									console.error("[dsh-script-manager] /script " + id + " failed:", (result.error && (result.error.message || result.error)) || result);
+								}
+							}).catch(function (e) {
+								console.error("[dsh-script-manager] /script " + id + " error:", e);
+							});
 						}
 					}
 				});

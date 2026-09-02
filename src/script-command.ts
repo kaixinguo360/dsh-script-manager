@@ -52,7 +52,7 @@ export function registerCreateScriptCommand(
       // bare /create_script：与 /plan bare 一致 —— 不产生任何模型交互，
       // 仅返回成功提示，等待用户补充任务指令后再次执行
       if (!instruction) {
-        return { kind: "success", text: "create_script 已就绪：请补充任务指令（/create_script <任务指令>）后执行。" };
+        return { kind: "success", text: "create_script ready - append a task instruction: /create_script <task description>" };
       }
       const agent = invocation.agent;
       if (agent && typeof agent.whenIdle === 'function') {
@@ -65,13 +65,15 @@ export function registerCreateScriptCommand(
       agent.steer(createUserMessage({
         content: [{
           type: "text",
-          text: '请根据以下任务指令，使用 script_create 工具创建一个 PTC 脚本（按你环境中脚本工具的规范流程：先查重，再创建，验证，然后告知用户如何调用）。\n\n' +
-            'PTC（programmatic tool call）脚本规格：独立可执行单元——代码体是一个 async TypeScript 函数体，内部可用 tools.* 绑定（tools.read / tools.bash 等），执行不经过模型回合，应返回 lossless-JSON 值（console.log 记录日志）；脚本保存在 ~/.dsh/scripts；可设 registerAsTool+toolName 注册为 agent 直接调用的工具；通过 script_run / /script <id> 执行。请让脚本自包含（在脚本内解析所需输入）、通用可复用，创建后务必用 script_run 验证。\n\n' +
-            '任务指令：\n' + instruction,
+          text: 'Please create a PTC script using the script_create tool per the instruction below (follow the env guidance: dedupe first, create, verify, then tell the user how to invoke it).\n\n' +
+            'PTC (programmatic tool call) spec: a standalone execution unit — an async TypeScript body that runs with the code runtime, has tools.* bindings (tools.read / tools.bash ...) available inside, executes without a model roundtrip, and returns a lossless-JSON value (console.log for logs). Scripts live under ~/.dsh/scripts; can be registered as direct agent tools (registerAsTool + toolName); invoked via script_run or /script <id>. Keep the script self-contained (resolve inputs inside) and generic; always verify with script_run after creating.\n\n' +
+            'Task instruction:\n' + instruction,
         }],
-        source: { kind: "user" },
+        // 来源标记为插件（系统侧说明），而非用户消息：
+        // 目的仅是向 agent 说明情况，绝不伪装成用户发言
+        source: { kind: "plugin", plugin: "dsh-script-manager" },
       }));
-      return { kind: "success", text: "已提交脚本创建任务，模型将按照指令创建脚本。" };
+      return { kind: "success", text: "Create-script task submitted; the model will create the script per the instruction." };
     },
   });
 }
@@ -149,12 +151,13 @@ export function registerScriptCommand(
       // 提示，不含 formatScriptResult 全文——完整结果已通过 tool/result 事件
       // 注入会话，模型在 deriveMessages 中自然读到，避免重复注入。
       if (agent && typeof agent.followup === 'function') {
+        // 来源标记为插件（系统侧说明），而非用户消息：仅向 agent 说明情况
         agent.followup(createUserMessage({
           content: [{
             type: "text",
-            text: '脚本 ' + script.name + ' 已执行完成，结果见上方工具调用记录。',
+            text: 'Script ' + script.name + ' executed (triggered by your /script command); see the tool call above.',
           }],
-          source: { kind: "user" },
+          source: { kind: "plugin", plugin: "dsh-script-manager" },
         }));
       }
 

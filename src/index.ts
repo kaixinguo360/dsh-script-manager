@@ -17,7 +17,7 @@ export const inject = ['tools', 'commands', 'codeRuntime', 'systemPrompt'];
 
 export const Config = Schema.object({
   scriptsDir: Schema.string().default('~/.dsh/scripts').description('脚本存储目录'),
-  maxExecutionTime: Schema.number().default(30000).description('脚本最大执行时间（毫秒）'),
+  maxExecutionTime: Schema.number().default(0).description('默认脚本执行超时（毫秒）；0 = 不限制（脚本级 timeoutMs / 调用级 script_run timeoutMs 可覆盖）'),
 });
 
 export type Config = typeof Config.infer;
@@ -52,11 +52,11 @@ export function apply(ctx: Context, config: Partial<Config> = {}): void {
 
   const resolved = {
     scriptsDir: config.scriptsDir ?? '~/.dsh/scripts',
-    maxExecutionTime: config.maxExecutionTime ?? 30000,
+    maxExecutionTime: config.maxExecutionTime ?? 0,
   };
 
   const store = new ScriptStore(resolved.scriptsDir);
-  const runner = new ScriptRunner(store, ctx);
+  const runner = new ScriptRunner(store, ctx, { defaultTimeoutMs: resolved.maxExecutionTime });
   const toolRegistry = new ScriptToolRegistry(ctx, store, runner);
 
   // 注册/卸载动态工具（按 registerAsTool/toolName）；写操作后同步

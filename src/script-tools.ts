@@ -18,6 +18,7 @@ interface ToolArgs {
   query?: string;
   tags?: string[];
   limit?: number;
+  timeoutMs?: number;
 }
 
 /** 通用 JSON 输出渲染。 */
@@ -44,6 +45,7 @@ export function registerScriptTools(
     code: { type: 'string', description: 'The TypeScript async function body; may return a value; runs with tools.* bindings (tools.read, tools.bash, ...) available.' },
     registerAsTool: { type: 'boolean', description: 'When true, register the script as a no-argument agent tool named by toolName.' },
     toolName: { type: 'string', description: 'Dynamic tool name when registerAsTool is true; must match ^[a-z_][a-z0-9_]*$; defaults to script_<id>.' },
+    timeoutMs: { type: 'number', description: 'Optional per-run timeout budget in milliseconds (positive integer). Defaults to the plugin maxExecutionTime config (0 = unlimited); a script_run({ timeoutMs }) call overrides it for one run.' },
   } as const;
 
   const CREATE_SCRIPT_SCHEMA = {
@@ -169,6 +171,10 @@ export function registerScriptTools(
         type: 'string', required: true,
         description: 'The script id to execute (e.g. hello-world, project-info). Fetch available ids via script_list.',
       },
+      timeoutMs: {
+        type: 'number',
+        description: 'Optional per-run timeout budget in milliseconds (positive integer). Overrides the script/plugin default for this run only. Omit for no override.',
+      },
     },
     output: {
       schema: { type: 'json' },
@@ -176,7 +182,12 @@ export function registerScriptTools(
       render: (_a: unknown, v: unknown) => [{ type: 'text', text: formatScriptResult(v as Record<string, unknown>) }],
     },
     async execute(args: any, exec: any) {
-      const result = await runner.run(args.scriptId, exec.signal, exec.agent, exec.token);
+      // 透传外层执行身份：内层 tools.* 子分发事件挂在本 script_run 调用之下，
+      // Web GUI 据此把脚本内部调用渲染为 PTC 同款嵌套层级（rootCallId 需一致）。
+      const result = await runner.run(args.scriptId, exec.signal, exec.agent, exec.token, args.timeoutMs, {
+        callId: String(exec.callId),
+        rootCallId: String(exec.rootCallId ?? exec.callId),
+      });
       return result;
     },
   })));
