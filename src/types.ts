@@ -31,6 +31,16 @@ export interface ScriptDefinition {
    * 0 与缺省等价（不设置）。
    */
   timeoutMs?: number;
+  /**
+   * 执行契约（可选，多行文本）：脚本执行完成后 agent 应达成的结果。
+   * 随执行结果一并提供给 agent 对照判断脚本是否达到预期行为。
+   * 改动 formatScriptResult 的契约段展示时须同步本字段语义。
+   */
+  expectedOutcome?: string;
+  /** 执行契约（可选）：如何验证脚本达到预期——可检查的迹象/检查点清单。 */
+  successCriteria?: string;
+  /** 执行契约（可选）：未达预期/失败时 agent 应如何介入调整的指引。 */
+  failureGuidance?: string;
   /** 元数据 */
   metadata: ScriptMetadata;
 }
@@ -68,6 +78,10 @@ export interface ScriptRunResult {
   logs: string[];
   error?: string;
   executionTime: number;
+  /** 执行契约直传（供 formatScriptResult 展示与 agent 对照验收）。 */
+  expectedOutcome?: string;
+  successCriteria?: string;
+  failureGuidance?: string;
 }
 
 /** 脚本管理操作参数 */

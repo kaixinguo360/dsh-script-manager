@@ -153,6 +153,10 @@ export class ScriptRunner {
         executionTime: Date.now() - startTime,
       };
       if (budgetMs !== undefined) runResult.timeoutMs = budgetMs;
+      // 执行契约直传（仅定义时有值才写入；供 formatScriptResult 展示与 agent 对照验收）
+      if (script.expectedOutcome !== undefined) runResult.expectedOutcome = script.expectedOutcome;
+      if (script.successCriteria !== undefined) runResult.successCriteria = script.successCriteria;
+      if (script.failureGuidance !== undefined) runResult.failureGuidance = script.failureGuidance;
 
       if (result.value !== undefined) {
         runResult.value = result.value;
