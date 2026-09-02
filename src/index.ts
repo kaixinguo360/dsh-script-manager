@@ -40,6 +40,12 @@ const SCRIPT_TOOLS_GUIDANCE = [
   '3. If the script is meant to be invoked directly as a tool during this task, set registerAsTool: true with a toolName. Otherwise keep it runnable via script_run / /script <id>.',
   '4. After creation, verify it with script_run (or /script <id>) and tell the user how to invoke it (script_run, /script <id>, or the dynamic tool name).',
   '5. Keep the script generic and parameter-light unless the user asks for specific inputs; prefer editing later via script_update.',
+  '',
+  'Execution contracts: when a script performs an operation whose result needs verifying, declare optional fields on the script so the post-run agent can judge success and decide whether to intervene:',
+  '- expectedOutcome: what the script is intended to achieve once finished.',
+  '- successCriteria: how to verify it (artifacts, exit codes, output patterns, return fields).',
+  '- failureGuidance: how to intervene when the outcome is not as expected or the run failed (adjust inputs, manual steps, or script_update then rerun).',
+  'These fields are surfaced with the run result (text section before Logs, plus a Review line). After running a script, first check it against its contract: if the expected outcome is reached, finish; only intervene when it is not (per failureGuidance, avoiding wasteful expansion). Scripts without a contract keep working unchanged.',
 ].join('');
 
 export function apply(ctx: Context, config: Partial<Config> = {}): void {

@@ -42,6 +42,14 @@ function validateTimeoutMs(value: unknown): number | undefined {
   return ms;
 }
 
+/** 执行契约字段（expectedOutcome/successCriteria/failureGuidance）：多行文本，trim 首尾；空串视为未设置。 */
+function validateContractField(value: unknown, field: string): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string') throw new ValidationError(field + ' must be a string when provided');
+  const text = value.trim();
+  return text === '' ? undefined : text;
+}
+
 /** 展开 ~ 为用户主目录 */
 function expandPath(path: string): string {
   if (path.startsWith('~')) {
@@ -156,6 +164,10 @@ export class ScriptStore {
     const toolName = validateToolName(script.toolName);
     // timeoutMs：可选，正整数毫秒
     const timeoutMs = validateTimeoutMs(script.timeoutMs);
+    // 执行契约：三可选多行文本（空/undefined 一律剔除）
+    const expectedOutcome = validateContractField(script.expectedOutcome, 'expectedOutcome');
+    const successCriteria = validateContractField(script.successCriteria, 'successCriteria');
+    const failureGuidance = validateContractField(script.failureGuidance, 'failureGuidance');
     const description = optionalString(script.description) ?? '';
     const version = optionalString(script.version) ?? '0.1.0';
     const author = optionalString(script.author) ?? '';
@@ -174,6 +186,9 @@ export class ScriptStore {
       registerAsTool: script.registerAsTool === true,
       ...(toolName !== undefined ? { toolName } : {}),
       ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      ...(expectedOutcome !== undefined ? { expectedOutcome } : {}),
+      ...(successCriteria !== undefined ? { successCriteria } : {}),
+      ...(failureGuidance !== undefined ? { failureGuidance } : {}),
       metadata: { createdAt: now, updatedAt: now, executionCount: 0 },
     } as ScriptDefinition;
     await writeFile(this.getScriptPath(id), JSON.stringify(fullScript, null, 2), 'utf-8');
@@ -209,11 +224,25 @@ export class ScriptStore {
     }
     if (patch.toolName !== undefined) validateToolName(patch.toolName);
     if (patch.timeoutMs !== undefined) validateTimeoutMs(patch.timeoutMs);
+    // 契约字段：仅校验显式提供者；空串/undefined 归一（空串视为删除该字段）
+    const contractPatch: Partial<ScriptDefinition> = {};
+    for (const key of ['expectedOutcome', 'successCriteria', 'failureGuidance'] as const) {
+      const v = patch[key];
+      if (v === undefined) continue;
+      const normalized = validateContractField(v, key);
+      if (normalized !== undefined) contractPatch[key] = normalized;
+    }
 
     const updated: ScriptDefinition = {
       ...existing, ...patch, id: nextId,
+      // 契约字段走归一后的 contractPatch：空串即删除(不残留 undefined/空串键)
+      ...(Object.keys(contractPatch).length > 0 ? contractPatch : {}),
       metadata: { ...existing.metadata, ...patch.metadata, updatedAt: new Date().toISOString() },
-    };
+    } as ScriptDefinition;
+    // 显式置空串删除：展开删除三个键(若有)
+    for (const key of ['expectedOutcome', 'successCriteria', 'failureGuidance'] as const) {
+      if (patch[key] !== undefined && contractPatch[key] === undefined) delete (updated as Record<string, unknown>)[key];
+    }
     await writeFile(this.getScriptPath(nextId), JSON.stringify(updated, null, 2), 'utf-8');
     if (nextId !== scriptId) {
       try { await unlink(this.getScriptPath(scriptId)); } catch { /* 源文件可能不存在 */ }

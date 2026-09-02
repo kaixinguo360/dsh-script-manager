@@ -46,6 +46,9 @@ export function registerScriptTools(
     registerAsTool: { type: 'boolean', description: 'When true, register the script as a no-argument agent tool named by toolName.' },
     toolName: { type: 'string', description: 'Dynamic tool name when registerAsTool is true; must match ^[a-z_][a-z0-9_]*$; defaults to script_<id>.' },
     timeoutMs: { type: 'number', description: 'Optional per-run timeout budget in milliseconds (positive integer). Defaults to the plugin maxExecutionTime config (0 = unlimited); a script_run({ timeoutMs }) call overrides it for one run.' },
+    expectedOutcome: { type: 'string', description: 'Execution contract (optional, multi-line): the outcome the script is intended to achieve once finished. Surfaced with the run result so the agent can check whether the intended behavior was reached.' },
+    successCriteria: { type: 'string', description: 'Execution contract (optional, multi-line): how to verify the script reached its intended outcome - concrete checkpoints (artifacts, exit codes, output patterns, return fields). Surfaced with the run result.' },
+    failureGuidance: { type: 'string', description: 'Execution contract (optional, multi-line): how the agent should intervene when the outcome is not as expected or the run failed - inputs to adjust, manual steps, or updating the script then rerunning. Surfaced with the run result.' },
   } as const;
 
   const CREATE_SCRIPT_SCHEMA = {

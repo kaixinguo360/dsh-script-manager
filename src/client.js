@@ -49,6 +49,8 @@ window.__ModuleLoader__.load({
 			".smp-label{font-size:12px;color:var(--dsw-alias-label-secondary);line-height:16px}",
 			".smp-input{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary);border-radius:8px;height:32px;padding:0 10px;font-size:13px;font-family:inherit;box-sizing:border-box;width:100%}",
 			".smp-input:focus-visible{border-color:var(--dsw-alias-state-business-primary);outline:none}",
+			".smp-textarea{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;line-height:1.5;box-sizing:border-box;width:100%;resize:vertical;min-height:64px}",
+			".smp-textarea:focus-visible{border-color:var(--dsw-alias-state-business-primary);outline:none}",
 			".smp-code-editor{position:relative;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-markdown-code-block);overflow:auto}",
 			".smp-code-editor:focus-within{border-color:var(--dsw-alias-state-business-primary)}",
 			".smp-code-editor::-webkit-scrollbar{width:10px;height:10px}",
@@ -150,14 +152,16 @@ window.__ModuleLoader__.load({
 
 		// ---- 表单映射 ----
 		function emptyForm() {
-			return { id: "", name: "", description: "", version: "0.1.0", author: "", tags: "", registerAsTool: false, toolName: "", timeoutMs: "", code: "" };
+			return { id: "", name: "", description: "", version: "0.1.0", author: "", tags: "", registerAsTool: false, toolName: "", timeoutMs: "", expectedOutcome: "", successCriteria: "", failureGuidance: "", code: "" };
 		}
 		function scriptToForm(s) {
 			return {
 				id: s.id, name: s.name, description: s.description || "",
 				version: s.version || "", author: s.author || "",
 				tags: (s.tags || []).join(", "), registerAsTool: !!s.registerAsTool,
-				toolName: s.toolName || "", timeoutMs: (s.timeoutMs === undefined || s.timeoutMs === null) ? "" : String(s.timeoutMs), code: s.code || ""
+				toolName: s.toolName || "", timeoutMs: (s.timeoutMs === undefined || s.timeoutMs === null) ? "" : String(s.timeoutMs),
+				expectedOutcome: s.expectedOutcome || "", successCriteria: s.successCriteria || "", failureGuidance: s.failureGuidance || "",
+				code: s.code || ""
 			};
 		}
 		function formToBody(f) {
@@ -168,6 +172,9 @@ window.__ModuleLoader__.load({
 				registerAsTool: !!f.registerAsTool,
 				toolName: (f.toolName || "").trim() || undefined,
 				timeoutMs: (function () { var v = String(f.timeoutMs || "").trim(); if (v === "") return undefined; var n = parseInt(v, 10); return (isFinite(n) && n > 0) ? n : undefined; })(),
+				expectedOutcome: (f.expectedOutcome || "").trim() || undefined,
+				successCriteria: (f.successCriteria || "").trim() || undefined,
+				failureGuidance: (f.failureGuidance || "").trim() || undefined,
 				code: f.code || ""
 			};
 		}
@@ -179,6 +186,15 @@ window.__ModuleLoader__.load({
 		function textInput(value, onChange, placeholder) {
 			return h("input", {
 				className: "smp-input",
+				value: value,
+				onChange: function (e) { onChange(e.target.value); },
+				placeholder: placeholder || ""
+			});
+		}
+		function textAreaInput(value, onChange, placeholder) {
+			return h("textarea", {
+				className: "smp-textarea",
+				rows: 3,
 				value: value,
 				onChange: function (e) { onChange(e.target.value); },
 				placeholder: placeholder || ""
@@ -367,6 +383,13 @@ window.__ModuleLoader__.load({
 				field("执行超时（毫秒，留空 = 不限制）",
 					textInput(form.timeoutMs, set("timeoutMs"), "不限制")),
 				h("div", { className: "smp-notice", style: { marginTop: -6 } }, "超时优先级：单次调用 timeoutMs > 本脚本设置 > 插件默认（默认不限制）。超过预算将中止整个脚本。"),
+				// 执行契约：声明式验收元数据，执行结果会带上供 agent 对照检查
+				field("预期结果（expectedOutcome，可选）——脚本完成后应达成的结果",
+					textAreaInput(form.expectedOutcome, set("expectedOutcome"), "例：仓库已更新到最新 main 并完成构建" + "\n" + "该字段随执行结果展示给 agent 对照判断是否达到预期")),
+				field("成功判据（successCriteria，可选）——如何验证达到预期",
+					textAreaInput(form.successCriteria, set("successCriteria"), "例：git log 显示最新提交；构建产物存在" + "\n" + "写可检查的具体迹象/检查点，供 agent 验收")),
+				field("未达标介入指引（failureGuidance，可选）——未达预期/失败时如何调整",
+					textAreaInput(form.failureGuidance, set("failureGuidance"), "例：网络问题可重试；如需改参/补手动步骤/修正脚本后重跑，请说明" + "\n" + "指引 agent 决定是否介入、如何介入")),
 				field("脚本代码（async 上下文，可用 tools.* 绑定）",
 					h(CodeEditor, {
 						value: form.code,

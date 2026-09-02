@@ -67,6 +67,7 @@ export function registerCreateScriptCommand(
           type: "text",
           text: 'Please create a PTC script using the script_create tool per the instruction below (follow the env guidance: dedupe first, create, verify, then tell the user how to invoke it).\n\n' +
             'PTC (programmatic tool call) spec: a standalone execution unit — an async TypeScript body that runs with the code runtime, has tools.* bindings (tools.read / tools.bash ...) available inside, executes without a model roundtrip, and returns a lossless-JSON value (console.log for logs). Scripts live under ~/.dsh/scripts; can be registered as direct agent tools (registerAsTool + toolName); invoked via script_run or /script <id>. Keep the script self-contained (resolve inputs inside) and generic; always verify with script_run after creating.\n\n' +
+            'When the operation result needs verifying, also set the execution contract fields on the script: expectedOutcome (intended result once finished), successCriteria (how to verify it - artifacts/exit codes/output patterns/return fields), failureGuidance (how to intervene when not as expected or failed - adjust inputs/manual steps/script_update then rerun). They are surfaced with the run result so the post-run agent can check the intended behavior and decide whether to intervene.\n\n' +
             'Task instruction:\n' + instruction,
         }],
         // 来源标记为插件（系统侧说明），而非用户消息：

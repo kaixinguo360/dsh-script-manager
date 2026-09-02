@@ -74,6 +74,28 @@ return { name: pkg.name };
 - 超时会中止整个脚本（含正在运行的内部 `tools.*` 调用），错误消息形如
   `script execution exceeded timeout of Nms`。
 
+### 执行契约（expectedOutcome / successCriteria / failureGuidance）
+
+脚本可声明三个可选的执行契约字段（多行文本），随执行结果一并提供给 agent，
+便于它在执行完成后对照判断脚本是否达到预期行为：
+
+- `expectedOutcome`：脚本完成后应达成的结果；
+- `successCriteria`：如何验证达到预期——可检查的迹象/检查点
+  （产物文件、退出码、输出特征、返回值字段等）；
+- `failureGuidance`：未达预期或执行失败时 agent 如何介入
+  （调整输入重试、补做手动步骤、`script_update` 修正脚本后重跑等）。
+
+执行结果文本中契约段位于 Logs 之前，末尾带一行 Review 提示；未声明契约的脚本
+照常工作，仅追加一行 Note 提示。适合在创建脚本时顺手补上：
+
+```json
+{
+  "expectedOutcome": "仓库已更新到 origin/main 的最新提交",
+  "successCriteria": "git log 顶部为远端最新 commit；git status 干净",
+  "failureGuidance": "网络错误可原样重试；若远端有新冲突需先手动解决再重跑"
+}
+```
+
 ## 开发
 
 ```bash
