@@ -79,7 +79,33 @@ window.__ModuleLoader__.load({
 			"div[class*=\"uV2eYG_overlayAnchor\"] div[role=\"listbox\"] *{pointer-events:auto!important}",
 			"div[class*=\"uV2eYG_overlayAnchor\"] [role=\"option\"]{pointer-events:auto!important}",
 			"div[class*=\"uV2eYG_overlayAnchor\"] [role=\"option\"] *{pointer-events:auto!important}",
-			"div[class*=\"uV2eYG_overlayAnchor\"] input[type=\"text\"]{pointer-events:auto!important}"
+			"div[class*=\"uV2eYG_overlayAnchor\"] input[type=\"text\"]{pointer-events:auto!important}",
+			"/* script_run 自绘 toolview（B 层）：Script 根行 + 展开输出卡 */",
+			".smv-card{flex-direction:column;display:flex}",
+			".smv-row{align-items:center;min-width:0;height:24px;display:flex;position:relative;overflow:hidden}",
+			".smv-row[data-expandable]{cursor:pointer}",
+			".smv-card[data-state=running] .smv-row:after{content:\"\";background:linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--dsw-alias-bg-base) 60%, transparent) 55%, transparent 100%);pointer-events:none;width:300px;animation:2.6s ease-out infinite smv-dsh-script-row-sweep;position:absolute;inset:0 auto 0 0}@keyframes smv-dsh-script-row-sweep{0%{left:-300px}90%,to{left:100%}}",
+			".smv-leading{width:16px;height:16px;color:var(--dsw-alias-label-tertiary);flex:none;justify-content:center;align-items:center;margin-right:6px;display:inline-flex;position:relative}",
+			".smv-chevron{color:var(--dsw-alias-label-secondary)}",
+			".smv-iconIdle{opacity:1;transition:opacity .1s;display:inline-flex}",
+			".smv-chevronHover{opacity:0;margin:auto;transition:opacity .1s;position:absolute;inset:0}",
+			".smv-row:hover .smv-iconIdle{opacity:0}",
+			".smv-row:hover .smv-chevronHover{opacity:1}",
+			".smv-title{color:var(--dsw-alias-label-secondary);flex:none;font-size:14px;line-height:24px}",
+			".smv-sep{background:var(--dsw-alias-label-caption);border-radius:1px;flex:none;width:2px;height:2px;margin:0 8px}",
+			".smv-summary{text-overflow:ellipsis;white-space:nowrap;min-width:0;color:var(--dsw-alias-label-secondary);flex:auto;font-size:14px;line-height:24px;overflow:hidden}",
+			".smv-errorSummary{color:var(--dsw-alias-state-error-primary)}",
+			".smv-summarySuffix{white-space:nowrap;color:var(--dsw-alias-label-tertiary);flex:none;margin-left:4px;font-size:14px;line-height:24px}",
+			".smv-bodyWrap{flex-direction:column;display:flex}",
+			".smv-outputCard{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-markdown-code-block);border-radius:12px;flex-direction:column;max-height:320px;margin:4px 0 4px 4px;display:flex;overflow:hidden}",
+			".smv-outputHeader{border-bottom:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-markdown-code-block-banner);color:var(--dsw-alias-label-caption);flex:none;padding:2px 12px;font-size:11px;line-height:20px;letter-spacing:.02em;text-transform:uppercase}",
+			".smv-output{white-space:pre-wrap;overflow-wrap:break-word;color:var(--dsw-alias-label-secondary);margin:0;padding:10px 14px;font:var(--dsw-font-markdown-code-block-small);font-family:var(--dsh-font-mono,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace);overflow:auto}",
+			".smv-output[data-error]{color:var(--dsw-alias-state-error-primary)}",
+			".smv-subCount{color:var(--dsw-alias-label-tertiary);flex:none;margin-left:auto;font-size:11px;line-height:16px;padding-right:4px}",
+			".smv-visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}",
+			".smv-inspectButton{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:0;border-radius:999px;align-items:center;gap:4px;margin:4px 0 2px 4px;padding:2px 8px;font-size:11px;line-height:16px;transition:opacity .1s;display:inline-flex}",
+			".smv-outputCard:hover .smv-inspectButton,.smv-inspectButton:focus-visible{opacity:1}",
+			".smv-inspectButton:hover{background:var(--dsw-alias-interactive-bg-hover-solid);color:var(--dsw-alias-label-primary)}"
 		].join("");
 		var tagId = "dsh-script-manager/smp.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=\"" + tagId + "\"]") === null) {
@@ -526,6 +552,150 @@ window.__ModuleLoader__.load({
 			);
 		}
 
+
+		// ---- script_run 自绘 toolview（B 层）----
+		// 渲染约定（与 @deepseek-ai/dsh-client-ui-skill 的 SkillRow 同构）：
+		// 组件只消费宿主的 owner props（callId/block/inspect...），纯展示、不读 store/远程。
+		// block 的递归 subCalls 子树由宿主 ToolCallTree 渲染在本组件外部，这里不管。
+		// 结果文本即 format-script-result.ts 的输出（首行 [Script] <name>、含 Time: Nms），
+		// 改动 formatScriptResult 时须同步这里的解析。
+
+		/** 把 settled 结果 content 块扁平为文本（对齐 ui-tool 的 resultText）。 */
+		function smvResultText(block) {
+			if (!("kind" in block)) return null;
+			var parts = [];
+			for (var i = 0; i < block.content.length; i++) {
+				var item = block.content[i];
+				parts.push(item.type === "text" ? item.text : JSON.stringify(item, null, 2));
+			}
+			if (parts.length === 0 && block.error !== undefined) parts.push(block.error.name + ": " + block.error.code);
+			return parts.join("\n") || null;
+		}
+
+		/** 首行（用于折叠摘要/错误首行）。 */
+		function smvFirstLine(text) {
+			if (text === null || text === undefined) return "";
+			var nl = text.indexOf("\n");
+			return nl === -1 ? text : text.slice(0, nl);
+		}
+
+		/** 从 argsRaw(JSON) 取 scriptId；失败回退 callId。 */
+		function smvScriptId(argsRaw, callId) {
+			if (argsRaw) {
+				try {
+					var parsed = JSON.parse(argsRaw);
+					if (parsed && typeof parsed.scriptId === "string" && parsed.scriptId !== "") return parsed.scriptId;
+				} catch (e) { /* 非 JSON，走回退 */ }
+			}
+			return callId || "";
+		}
+
+		/** 从结果文本取脚本名：首行 \"[Script] <name>\" 中 name 之后的部分。 */
+		function smvNameFromText(text, fallback) {
+			var first = smvFirstLine(text);
+			var prefix = "[Script] ";
+			if (first.indexOf(prefix) === 0) {
+				var rest = first.slice(prefix.length).trim();
+				if (rest !== "") return rest;
+			}
+			return fallback || "";
+		}
+
+		/** 从结果文本取执行耗时：/Time: (\d+)ms/ → 数字（无则 null）。 */
+		function smvExecMs(text) {
+			if (text === null || text === undefined) return null;
+			var m = /\bTime: (\d+)ms\b/.exec(text);
+			return m ? parseInt(m[1], 10) : null;
+		}
+
+		/** 由 frozen block 派生单次展示模型（running 或 settled）。 */
+		function smvRunModel(block) {
+			var settled = "kind" in block;
+			var argsRaw = settled ? (block.call && block.call.argsRaw) : block.argsRaw;
+			argsRaw = argsRaw || "";
+			var output = smvResultText(block);
+			var state = !settled ? "running" : block.error && block.error.code === "interrupted" ? "stopped" : block.isError ? "error" : "ok";
+			var scriptId = smvScriptId(argsRaw, block.callId);
+			var scriptName = smvNameFromText(output, scriptId);
+			var execMs = smvExecMs(output);
+			return {
+				scriptId: scriptId,
+				scriptName: scriptName,
+				output: output,
+				execMs: execMs,
+				state: state,
+				errorSummary: state === "error" && output !== null ? smvFirstLine(output) : null,
+				subCount: (block.subCalls || []).length
+			};
+		}
+
+		/** 折叠行 leading：状态图标（可展开时悬停显示 chevron）。 */
+		function smvLeadingFor(state, open, expandable) {
+			var C = "smv";
+			if (open) return h(P.IconChevronDownOutline14, { className: C + "-chevron" });
+			var icon;
+			if (state === "error") icon = h(P.StateDot, { state: "error" });
+			else if (state === "stopped") icon = h(P.StateDot, { state: "warning" });
+			else icon = h(P.IconCodeOutline16, { size: 14 }); // running / ok 用 idle 图标（StateDot 无 running 态，运行中由 CSS sweep 提示）
+			if (!expandable) return icon;
+			return react.createElement(react.Fragment, null,
+				h("span", { className: C + "-iconIdle" }, icon),
+				h(P.IconChevronDownOutline14, { className: C + "-chevron " + C + "-chevronHover" }));
+		}
+
+		/** 状态辅助文案（视觉隐藏，供读屏）。 */
+		function smvStatus(state) {
+			switch (state) {
+				case "running": return "Running script";
+				case "error": return "Script failed";
+				case "stopped": return "Script stopped";
+				default: return null;
+			}
+		}
+
+		/** 渲染一次 script_run 调用：Script 行 + 可展开完整输出 + Inspect。 */
+		function ScriptRunToolView(props) {
+			var block = props.block;
+			var inspect = props.inspect;
+			var model = smvRunModel(block);
+			var expState = react.useState(false);
+			var expanded = expState[0];
+			var setExpanded = expState[1];
+			var C = "smv";
+			var expandable = model.output !== null;
+			var open = expanded && expandable;
+			var status = smvStatus(model.state);
+			var summary = model.errorSummary !== null ? model.errorSummary : model.scriptName || model.scriptId;
+
+			function toggle() { setExpanded(function (v) { return !v; }); }
+			function onKeyDown(e) {
+				if (!expandable || (e.key !== "Enter" && e.key !== " ")) return;
+				e.preventDefault();
+				toggle();
+			}
+
+			var disclosureProps = expandable ? { role: "button", tabIndex: 0, "aria-expanded": open, onClick: toggle, onKeyDown: onKeyDown } : {};
+
+			return h("div", { className: C + "-card", "data-tool": "script_run", "data-state": model.state },
+				h("div", { className: C + "-row", "data-expandable": expandable || undefined, role: disclosureProps.role, tabIndex: disclosureProps.tabIndex, "aria-expanded": disclosureProps["aria-expanded"], onClick: disclosureProps.onClick, onKeyDown: disclosureProps.onKeyDown },
+					h("span", { className: C + "-leading" },
+						smvLeadingFor(model.state, open, expandable)),
+					status !== null ? h("span", { className: C + "-visuallyHidden" }, status) : null,
+					h("span", { className: C + "-title" }, "Script"),
+					h("span", { className: C + "-sep", "aria-hidden": true }),
+					h("span", { className: model.errorSummary !== null ? (C + "-summary " + C + "-errorSummary") : (C + "-summary") }, summary),
+					model.execMs !== null ? h("span", { className: C + "-summarySuffix" }, "· " + model.execMs + "ms") : null,
+					(model.subCount > 0 && open) ? h("span", { className: C + "-subCount" }, model.subCount + " inner calls") : null
+				),
+				open ? h("div", { className: C + "-bodyWrap" },
+					h("section", { className: C + "-outputCard", "aria-label": "Output" },
+						h("div", { className: C + "-outputHeader" }, "Output"),
+						h("pre", { className: C + "-output", "data-error": model.state === "error" || undefined }, model.output)),
+					inspect !== undefined ? h("button", { type: "button", className: C + "-inspectButton", onClick: inspect },
+						h(P.IconInspectOutline12, {}), "Inspect") : null)
+					: null
+			);
+		}
 		// ---- apply ----
 		function apply(ctx) {
 			var commandUi = ctx.commandUi;
@@ -583,6 +753,17 @@ window.__ModuleLoader__.load({
 						}, ScriptManagerSection);
 					});
 				}, "script-manager: settings section");
+
+				// script_run 根卡自绘（B 层）：命中 tool.call.toolview 的 script_run key，
+				// 替换通用工具卡；未命中（slots 缺失/旧宿主）自然回退 Generic。
+				ctx.effect(function () {
+					return slots.inject("tool.call.toolview", function () {
+						return slots.register({
+							name: "tool.call.toolview",
+							key: "script_run"
+						}, ScriptRunToolView);
+					});
+				}, "script-manager: script_run toolview");
 			}
 		}
 
