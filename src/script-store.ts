@@ -32,6 +32,16 @@ function validateToolName(value: unknown): string | undefined {
   return text;
 }
 
+/** 校验执行超时预算：必须为正整数（缺省 = 未设置，跟随插件默认）。 */
+function validateTimeoutMs(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const ms = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(ms) || ms <= 0 || !Number.isInteger(ms)) {
+    throw new ValidationError('timeoutMs must be a positive integer (milliseconds)');
+  }
+  return ms;
+}
+
 /** 展开 ~ 为用户主目录 */
 function expandPath(path: string): string {
   if (path.startsWith('~')) {
@@ -144,6 +154,8 @@ export class ScriptStore {
     }
     // toolName：提供且非空时必须合法
     const toolName = validateToolName(script.toolName);
+    // timeoutMs：可选，正整数毫秒
+    const timeoutMs = validateTimeoutMs(script.timeoutMs);
     const description = optionalString(script.description) ?? '';
     const version = optionalString(script.version) ?? '0.1.0';
     const author = optionalString(script.author) ?? '';
@@ -161,13 +173,14 @@ export class ScriptStore {
       tags: script.tags ? (script.tags as string[]) : [],
       registerAsTool: script.registerAsTool === true,
       ...(toolName !== undefined ? { toolName } : {}),
+      ...(timeoutMs !== undefined ? { timeoutMs } : {}),
       metadata: { createdAt: now, updatedAt: now, executionCount: 0 },
     } as ScriptDefinition;
     await writeFile(this.getScriptPath(id), JSON.stringify(fullScript, null, 2), 'utf-8');
     this.index.set(id, {
       id: fullScript.id, name: fullScript.name, description: fullScript.description,
       version: fullScript.version, author: fullScript.author, tags: fullScript.tags,
-      registerAsTool: fullScript.registerAsTool, ...(fullScript.toolName !== undefined ? { toolName: fullScript.toolName } : {}), metadata: fullScript.metadata,
+      registerAsTool: fullScript.registerAsTool, ...(fullScript.toolName !== undefined ? { toolName: fullScript.toolName } : {}), ...(fullScript.timeoutMs !== undefined ? { timeoutMs: fullScript.timeoutMs } : {}), metadata: fullScript.metadata,
     });
     await this.saveIndex();
     return fullScript;
@@ -195,6 +208,7 @@ export class ScriptStore {
       throw new ValidationError('tags must be an array of strings');
     }
     if (patch.toolName !== undefined) validateToolName(patch.toolName);
+    if (patch.timeoutMs !== undefined) validateTimeoutMs(patch.timeoutMs);
 
     const updated: ScriptDefinition = {
       ...existing, ...patch, id: nextId,
@@ -208,7 +222,7 @@ export class ScriptStore {
     this.index.set(nextId, {
       id: updated.id, name: updated.name, description: updated.description,
       version: updated.version, author: updated.author, tags: updated.tags,
-      registerAsTool: updated.registerAsTool, toolName: updated.toolName, metadata: updated.metadata,
+      registerAsTool: updated.registerAsTool, ...(updated.toolName !== undefined ? { toolName: updated.toolName } : {}), ...(updated.timeoutMs !== undefined ? { timeoutMs: updated.timeoutMs } : {}), metadata: updated.metadata,
     });
     await this.saveIndex();
     return updated;

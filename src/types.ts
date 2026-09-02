@@ -25,6 +25,12 @@ export interface ScriptDefinition {
   registerAsTool: boolean;
   /** 若 registerAsTool=true，动态注册的 tool 名称 */
   toolName?: string;
+  /**
+   * 单次执行超时预算（毫秒，正整数）。缺省 = 跟随插件配置 maxExecutionTime
+   * （默认 0 = 不限制）；调用级 script_run({ timeoutMs }) 可临时覆盖。
+   * 0 与缺省等价（不设置）。
+   */
+  timeoutMs?: number;
   /** 元数据 */
   metadata: ScriptMetadata;
 }
@@ -77,6 +83,7 @@ export interface ScriptManageArgs {
 /** 插件配置 */
 export interface PluginConfig {
   scriptsDir: string;
+  /** 默认执行超时预算（毫秒）；0 = 不限制（脚本级/调用级可单独覆盖）。 */
   maxExecutionTime: number;
   enableWebUI: boolean;
 }
