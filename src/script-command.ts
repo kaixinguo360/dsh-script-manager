@@ -19,11 +19,27 @@ interface CommandsService {
   }): () => void;
 }
 
-function parseScriptName(input: string): string | null {
+/** 拆分 /script 输入:首个空格前为脚本名,其后为可选 JSON 参数文本。 */
+function splitScriptInvocation(input: string): { name: string | null; argsText: string } {
   const trimmed = input.trim();
-  if (!trimmed) return null;
+  if (!trimmed) return { name: null, argsText: "" };
   const spaceIndex = trimmed.indexOf(" ");
-  return spaceIndex === -1 ? trimmed : trimmed.substring(0, spaceIndex);
+  if (spaceIndex === -1) return { name: trimmed, argsText: "" };
+  return { name: trimmed.substring(0, spaceIndex), argsText: trimmed.substring(spaceIndex + 1).trim() };
+}
+
+/** 解析可选的 JSON 参数文本;非法返回错误消息。 */
+function parseJsonArgs(argsText: string): { params?: Record<string, unknown>; error?: string } {
+  if (!argsText) return {};
+  try {
+    const parsed = JSON.parse(argsText);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return { error: "Script arguments must be a JSON object, e.g. /script <id> {\"key\":\"value\"}" };
+    }
+    return { params: parsed as Record<string, unknown> };
+  } catch {
+    return { error: "Script arguments are not valid JSON. Use /script <script-id> {\"param\":\"value\"} or pick the script in the candidate list to fill parameters." };
+  }
 }
 
 /**
@@ -68,6 +84,7 @@ export function registerCreateScriptCommand(
           text: 'Please create a PTC script using the script_create tool per the instruction below (follow the env guidance: dedupe first, create, verify, then tell the user how to invoke it).\n\n' +
             'PTC (programmatic tool call) spec: a standalone execution unit — an async TypeScript body that runs with the code runtime, has tools.* bindings (tools.read / tools.bash ...) available inside, executes without a model roundtrip, and returns a lossless-JSON value (console.log for logs). Scripts live under ~/.dsh/scripts; can be registered as direct agent tools (registerAsTool + toolName); invoked via script_run or /script <id>. Keep the script self-contained (resolve inputs inside) and generic; always verify with script_run after creating.\n\n' +
             'When the operation result needs verifying, also set the execution contract fields on the script: expectedOutcome (intended result once finished), successCriteria (how to verify it - artifacts/exit codes/output patterns/return fields), failureGuidance (how to intervene when not as expected or failed - adjust inputs/manual steps/script_update then rerun). They are surfaced with the run result so the post-run agent can check the intended behavior and decide whether to intervene.\n\n' +
+            'When the operation takes inputs, declare a parameters array on the script: each entry { name (identifier, read as params.<name> in the script), type (string/number/boolean, default string), label?, description?, required, default }. Rule: required parameters must NOT declare a default and must be provided at run time; optional parameters MUST declare a default matching type. Callers then run with script_run({ scriptId, params: {...} }), and the effective params (defaults merged) are surfaced in the run result. Optional parameters with defaults let the /script candidate list run directly.\n\n' +
             'Task instruction:\n' + instruction,
         }],
         // 来源标记为插件（系统侧说明），而非用户消息：
@@ -91,9 +108,9 @@ export function registerScriptCommand(
 
   return commands.register({
     name: 'script',
-    description: 'Execute custom script. Usage: /script <script-name>',
+    description: 'Execute custom script. Usage: /script <script-name> [{\"param\":\"value\"}]',
     async handler(invocation: any) {
-      const scriptName = parseScriptName(invocation.rawInput);
+      const { name: scriptName, argsText } = splitScriptInvocation(invocation.rawInput);
 
       if (!scriptName) {
         const scripts = await store.list();
@@ -110,6 +127,14 @@ export function registerScriptCommand(
         return { kind: "error", text: "Script not found: " + scriptName };
       }
 
+      // 可选 JSON 参数文本 → params(透传给 script_run 与 runner)
+      const jsonArgs = parseJsonArgs(argsText);
+      if (jsonArgs.error) {
+        return { kind: "error", text: jsonArgs.error };
+      }
+      const runArgs: Record<string, unknown> = { scriptId: scriptName };
+      if (jsonArgs.params) runArgs.params = jsonArgs.params;
+
       const agent = invocation.agent;
       if (agent && typeof agent.whenIdle === 'function') {
         await agent.whenIdle();
@@ -125,7 +150,7 @@ export function registerScriptCommand(
           ctx,
           agent,
           'script_run',
-          { scriptId: scriptName },
+          runArgs,
           invocation.signal,
           parentToken,
         );
@@ -134,7 +159,7 @@ export function registerScriptCommand(
         toolResult = await ctx.tools.execute({
           callId: CallId('script-cmd-' + Date.now()),
           name: 'script_run',
-          arguments: { scriptId: scriptName },
+          arguments: runArgs,
           agent,
           parent: parentToken,
           signal: invocation.signal,

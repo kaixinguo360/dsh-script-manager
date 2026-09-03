@@ -51,6 +51,17 @@ window.__ModuleLoader__.load({
 			".smp-input:focus-visible{border-color:var(--dsw-alias-state-business-primary);outline:none}",
 			".smp-textarea{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;line-height:1.5;box-sizing:border-box;width:100%;resize:vertical;min-height:64px}",
 			".smp-textarea:focus-visible{border-color:var(--dsw-alias-state-business-primary);outline:none}",
+			".smp-params{display:flex;flex-direction:column;gap:6px;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;padding:10px 12px}",
+			".smp-params-head{display:flex;align-items:center;gap:8px;min-height:28px}",
+			".smp-params-title{flex:1;font-size:12px;font-weight:500;color:var(--dsw-alias-label-secondary)}",
+			".smp-params-list{display:flex;flex-direction:column;gap:8px}",
+			".smp-param-row{display:flex;flex-direction:column;gap:6px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:8px 10px;background:transparent}",
+			".smp-param-line,.smp-param-line2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}",
+			".smp-param-line .smp-input{flex:1;min-width:120px}",
+			".smp-param-line2 .smp-input{flex:1;min-width:120px}",
+			".smp-param-type{width:110px;flex:none!important}",
+			".smp-param-req{flex:none;margin:0 4px 0 2px}",
+			".smp-params .smp-btn-sm,.smp-params .smp-danger-btn{height:28px;padding:0 10px;font-size:12px}",
 			".smp-code-editor{position:relative;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-markdown-code-block);overflow:auto}",
 			".smp-code-editor:focus-within{border-color:var(--dsw-alias-state-business-primary)}",
 			".smp-code-editor::-webkit-scrollbar{width:10px;height:10px}",
@@ -107,7 +118,27 @@ window.__ModuleLoader__.load({
 			".smv-visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}",
 			".smv-inspectButton{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:0;border-radius:999px;align-items:center;gap:4px;margin:4px 0 2px 4px;padding:2px 8px;font-size:11px;line-height:16px;transition:opacity .1s;display:inline-flex}",
 			".smv-outputCard:hover .smv-inspectButton,.smv-inspectButton:focus-visible{opacity:1}",
-			".smv-inspectButton:hover{background:var(--dsw-alias-interactive-bg-hover-solid);color:var(--dsw-alias-label-primary)}"
+			".smv-inspectButton:hover{background:var(--dsw-alias-interactive-bg-hover-solid);color:var(--dsw-alias-label-primary)}",
+			".smp-param-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:6px;color:var(--dsw-alias-label-tertiary);border-radius:6px;cursor:pointer;flex:none;vertical-align:middle}",
+			".smp-param-icon:hover{color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-interactive-bg-hover)}",
+			".smp-ovl{position:fixed;inset:0;z-index:2147483000;background:color-mix(in srgb, var(--dsw-alias-bg-mask,#000) 40%, transparent);display:flex;align-items:center;justify-content:center;padding:24px}",
+			".smp-ovl-card{background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);border-radius:14px;box-shadow:0 12px 40px rgb(0 0 0 / .35);width:min(420px,100%);max-height:80vh;display:flex;flex-direction:column;overflow:hidden}",
+			".smp-ovl-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--dsw-alias-border-l2)}",
+			".smp-ovl-title{flex:1;font-size:14px;font-weight:600;line-height:20px;color:var(--dsw-alias-label-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+			".smp-ovl-x{border:0;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer;font-size:16px;line-height:20px;padding:0 4px;border-radius:6px}",
+			".smp-ovl-x:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}",
+			".smp-ovl-body{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:10px}",
+			".smp-ovl-row{display:flex;flex-direction:column;gap:4px}",
+			".smp-ovl-lbl{font-size:12px;line-height:16px;color:var(--dsw-alias-label-secondary)}",
+			".smp-ovl-tip{color:var(--dsw-alias-label-tertiary);font-weight:400}",
+			".smp-ovl-input{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary);border-radius:8px;height:30px;padding:0 10px;font-size:13px;font-family:inherit;box-sizing:border-box;width:100%;outline:none}",
+			".smp-ovl-input:focus{border-color:var(--dsw-alias-state-business-primary)}",
+			".smp-ovl-err{color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:1.4}",
+			".smp-ovl-foot{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid var(--dsw-alias-border-l2)}",
+			".smp-ovl-btn{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);border-radius:8px;height:30px;padding:0 14px;font-size:13px;cursor:pointer}",
+			".smp-ovl-btn:hover{background:var(--dsw-alias-interactive-bg-hover)}",
+			".smp-ovl-primary{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:#fff}",
+			".smp-ovl-primary:hover{background:var(--dsw-alias-state-business-primary-hover,#2a6cf0);color:#fff}"
 		].join("");
 		var tagId = "dsh-script-manager/smp.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=\"" + tagId + "\"]") === null) {
@@ -152,7 +183,7 @@ window.__ModuleLoader__.load({
 
 		// ---- 表单映射 ----
 		function emptyForm() {
-			return { id: "", name: "", description: "", version: "0.1.0", author: "", tags: "", registerAsTool: false, toolName: "", timeoutMs: "", expectedOutcome: "", successCriteria: "", failureGuidance: "", code: "" };
+			return { id: "", name: "", description: "", version: "0.1.0", author: "", tags: "", registerAsTool: false, toolName: "", timeoutMs: "", parameters: [], expectedOutcome: "", successCriteria: "", failureGuidance: "", code: "" };
 		}
 		function scriptToForm(s) {
 			return {
@@ -160,6 +191,7 @@ window.__ModuleLoader__.load({
 				version: s.version || "", author: s.author || "",
 				tags: (s.tags || []).join(", "), registerAsTool: !!s.registerAsTool,
 				toolName: s.toolName || "", timeoutMs: (s.timeoutMs === undefined || s.timeoutMs === null) ? "" : String(s.timeoutMs),
+				parameters: (s.parameters || []).map(function (p) { return { _k: "p" + Math.random().toString(36).slice(2, 8), name: p.name || "", label: p.label || "", type: p.type || "string", required: !!p.required, default: (p.default === undefined || p.default === null) ? "" : String(p.default), description: p.description || "" }; }),
 				expectedOutcome: s.expectedOutcome || "", successCriteria: s.successCriteria || "", failureGuidance: s.failureGuidance || "",
 				code: s.code || ""
 			};
@@ -175,6 +207,32 @@ window.__ModuleLoader__.load({
 				expectedOutcome: (f.expectedOutcome || "").trim() || undefined,
 				successCriteria: (f.successCriteria || "").trim() || undefined,
 				failureGuidance: (f.failureGuidance || "").trim() || undefined,
+				parameters: (function () {
+					var out = [];
+					(f.parameters || []).forEach(function (r) {
+						var name = String(r.name || "").trim();
+						if (!name) return; // 跳过空行
+						var type = (r.type === "number" || r.type === "boolean") ? r.type : "string";
+						var required = !!r.required;
+						var item = { name: name, type: type, required: required };
+						var label = String(r.label || "").trim();
+						if (label) item.label = label;
+						var desc = String(r.description || "").trim();
+						if (desc) item.description = desc;
+						if (!required) {
+							// 选输必须带默认。string 的空串是合法默认值,不能吞成未声明;
+							// number/boolean 留空(未填)则留给服务端校验提示填写
+							var dv = r.default == null ? "" : String(r.default);
+							if (type === "string") { item.default = dv; }
+							else if (dv.trim() !== "") {
+								if (type === "number") { var n = Number(dv); if (Number.isFinite(n)) item.default = n; }
+								else item.default = dv === "true" || dv === "1" || dv === "是";
+							}
+						}
+						out.push(item);
+					});
+					return out.length > 0 ? out : undefined;
+				})(),
 				code: f.code || ""
 			};
 		}
@@ -320,6 +378,31 @@ window.__ModuleLoader__.load({
 					setForm(next);
 				};
 			}
+
+			// ---- 参数行编辑（不可变更新 form.parameters 数组） ----
+			function setParams(nextParams) { set("parameters")(nextParams); }
+			function addParam() {
+				var rows = (form.parameters || []).slice();
+				rows.push({ _k: "p" + Math.random().toString(36).slice(2, 8), name: "", label: "", type: "string", required: false, default: "", description: "" });
+				setParams(rows);
+			}
+			function setParam(k, key) {
+				return function (v) {
+					var rows = (form.parameters || []).map(function (r) {
+						if (r._k !== k) return r;
+						var nr = {};
+						for (var x in r) nr[x] = r[x];
+						nr[key] = v;
+						// 必输不可带默认(UI 同步清空,避免误留)
+						if (key === "required" && v) nr.default = "";
+						return nr;
+					});
+					setParams(rows);
+				};
+			}
+			function removeParam(k) {
+				setParams((form.parameters || []).filter(function (r) { return r._k !== k; }));
+			}
 			function save() {
 				var body = formToBody(form);
 				if (!body.id) { setErr("id 不能为空"); return; }
@@ -383,6 +466,30 @@ window.__ModuleLoader__.load({
 				field("执行超时（毫秒，留空 = 不限制）",
 					textInput(form.timeoutMs, set("timeoutMs"), "不限制")),
 				h("div", { className: "smp-notice", style: { marginTop: -6 } }, "超时优先级：单次调用 timeoutMs > 本脚本设置 > 插件默认（默认不限制）。超过预算将中止整个脚本。"),
+			// 参数化：行编辑器（必输无默认 / 选输必有默认，服务端保存时强校验）
+			h("div", { className: "smp-params" },
+				h("div", { className: "smp-params-head" },
+					h("span", { className: "smp-params-title" }, "参数（可选；脚本内以 params.<name> 读取）"),
+					h(P.Button, { variant: "outline", disabled: busy, onClick: addParam }, "+ 添加参数")),
+				(Array.isArray(form.parameters) && form.parameters.length > 0)
+					? h("div", { className: "smp-params-list" }, form.parameters.map(function (r) {
+						return h("div", { className: "smp-param-row", key: r._k },
+							h("div", { className: "smp-param-line" },
+								textInput(r.name, setParam(r._k, "name"), "name"),
+								h("select", { className: "smp-input smp-param-type", value: r.type, onChange: function (e) { setParam(r._k, "type")(e.target.value); } },
+									h("option", { value: "string" }, "string"),
+									h("option", { value: "number" }, "number"),
+									h("option", { value: "boolean" }, "boolean")),
+								h("label", { className: "smp-check smp-param-req", style: { alignSelf: "center" } },
+									h("input", { type: "checkbox", checked: !!r.required, onChange: function (e) { setParam(r._k, "required")(e.target.checked); } }),
+									"必输"),
+								h(P.Button, { variant: "outline", className: "smp-danger-btn", onClick: function () { removeParam(r._k); } }, "删除")),
+							h("div", { className: "smp-param-line2" },
+								textInput(r.label, setParam(r._k, "label"), "显示名(可选)"),
+								r.required ? null : textInput(r.default, setParam(r._k, "default"), r.type === "number" ? "默认数字" : r.type === "boolean" ? "true/false" : "默认值"),
+								textInput(r.description, setParam(r._k, "description"), "说明(可选)")));
+						}, this))
+					: h("div", { className: "smp-notice", style: { marginTop: 0 } }, "无参数：执行时不需要输入，/script 候选直接运行（可选参数会带默认值）。")),
 				// 执行契约：声明式验收元数据，执行结果会带上供 agent 对照检查
 				field("预期结果（expectedOutcome，可选）——脚本完成后应达成的结果",
 					textAreaInput(form.expectedOutcome, set("expectedOutcome"), "例：仓库已更新到最新 main 并完成构建" + "\n" + "该字段随执行结果展示给 agent 对照判断是否达到预期")),
@@ -719,6 +826,268 @@ window.__ModuleLoader__.load({
 					: null
 			);
 		}
+
+		// ==================== 参数化 /script(候选图标 + 参数弹窗) ====================
+		// 宿主 popupSelect 行只渲染 label/detail,无法内嵌图标或表单:
+		// - 参数概要写进 detail(带参项标识);
+		// - 行尾图标用 DOM 增强注入(宿主结构变化时自动降级:仅少了快捷入口,点行仍按规则弹窗/执行);
+		// - 参数填写用自绘遮罩浮层(原生 DOM,不依赖 react-dom)。
+
+		function smpPType(p) { return p && p.type ? p.type : "string"; }
+		function smpHasParams(s) { return Array.isArray(s && s.parameters) && s.parameters.length > 0; }
+		function smpHasRequired(s) { return smpHasParams(s) && s.parameters.some(function (p) { return p.required; }); }
+
+		/** 参数概要文本(候选行 detail 尾部),如 targetUser(必) mode(=private)。 */
+		function smpParamsBrief(params) {
+			if (!Array.isArray(params) || params.length === 0) return "";
+			return params.map(function (p) {
+				var t = p.label || p.name;
+				return p.required ? t + "(必)" : t + "(" + smpBriefDefault(p) + ")";
+			}).join(", ");
+		}
+		function smpBriefDefault(p) {
+			if (p.default === undefined || p.default === null || p.default === "") return "默认空";
+			return "=" + String(p.default);
+		}
+
+		/** 后台执行 /script(与现有点选行为一致:先放行收层,命令照常进会话)。 */
+		function smpRunScript(ctx, sid, id, paramsJson) {
+			var cmd = "/script " + id + (paramsJson ? " " + paramsJson : "");
+			return Promise.resolve().then(function () {
+				return ctx.remote.commands.execute(sid, cmd, []);
+			}).then(function (result) {
+				if (result && !result.ok) {
+					console.error("[dsh-script-manager] " + cmd + " failed:", (result.error && (result.error.message || result.error)) || result);
+				}
+			}).catch(function (e) {
+				console.error("[dsh-script-manager] " + cmd + " error:", e);
+			});
+		}
+
+		// ---- 参数输入浮层(自绘,原生 DOM) ----
+		var smpOverlay = null;
+		function smpCloseOverlay() {
+			if (!smpOverlay) return;
+			try { document.removeEventListener("keydown", smpOverlay._kd, true); } catch (e) {}
+			if (smpOverlay.parentNode) smpOverlay.parentNode.removeChild(smpOverlay);
+			smpOverlay = null;
+		}
+		/**
+		 * 打开参数填写浮层。
+		 * @param spec { id, name, parameters, onSubmit } onSubmit(id, paramsObj) 返回 Promise
+		 */
+		function smpOpenOverlay(spec) {
+			smpCloseOverlay();
+			var params = spec.parameters || [];
+			var values = {};
+			var inputs = {};
+			var errBox;
+			params.forEach(function (p) {
+				if (!p.required && p.default !== undefined) values[p.name] = p.default;
+			});
+
+			var overlay = document.createElement("div");
+			overlay.className = "smp-ovl";
+			overlay.addEventListener("mousedown", function (e) { if (e.target === overlay) smpCloseOverlay(); });
+
+			var card = document.createElement("div");
+			card.className = "smp-ovl-card";
+			card.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+
+			var head = document.createElement("div");
+			head.className = "smp-ovl-head";
+			var title = document.createElement("span");
+			title.className = "smp-ovl-title";
+			title.textContent = spec.name;
+			head.appendChild(title);
+			var close = document.createElement("button");
+			close.type = "button";
+			close.className = "smp-ovl-x";
+			close.textContent = "×";
+			close.setAttribute("aria-label", "Close");
+			close.addEventListener("click", smpCloseOverlay);
+			head.appendChild(close);
+			card.appendChild(head);
+
+			var body = document.createElement("div");
+			body.className = "smp-ovl-body";
+			params.forEach(function (p) {
+				var req = !!p.required;
+				var type = smpPType(p);
+				var row = document.createElement("label");
+				row.className = "smp-ovl-row";
+				var lbl = document.createElement("span");
+				lbl.className = "smp-ovl-lbl";
+				lbl.textContent = (p.label || p.name) + (req ? " *" : "");
+				if (p.description) {
+					var tip = document.createElement("span");
+					tip.className = "smp-ovl-tip";
+					tip.textContent = p.description;
+					lbl.appendChild(document.createTextNode(" "));
+					lbl.appendChild(tip);
+				}
+				row.appendChild(lbl);
+				if (type === "boolean") {
+					var sel = document.createElement("select");
+					sel.className = "smp-ovl-input";
+					var defBool = !req && p.default === true; // 选输且默认 true → 预选"是";其余(必输/默认false) → "否"
+					["true", "false"].forEach(function (v) {
+						var o = document.createElement("option");
+						o.value = v;
+						o.textContent = v === "true" ? "是 / true" : "否 / false";
+						if ((v === "true") === defBool) o.selected = true;
+						sel.appendChild(o);
+					});
+					inputs[p.name] = sel;
+					row.appendChild(sel);
+				} else {
+					var inp = document.createElement("input");
+					inp.className = "smp-ovl-input";
+					inp.type = type === "number" ? "text" : "text";
+					inp.placeholder = req ? "必填" : ("默认: " + smpBriefDefault(p));
+					inputs[p.name] = inp;
+					row.appendChild(inp);
+				}
+				body.appendChild(row);
+			});
+			errBox = document.createElement("div");
+			errBox.className = "smp-ovl-err";
+			errBox.style.display = "none";
+			body.appendChild(errBox);
+			card.appendChild(body);
+
+			var foot = document.createElement("div");
+			foot.className = "smp-ovl-foot";
+			var cancel = document.createElement("button");
+			cancel.type = "button";
+			cancel.className = "smp-ovl-btn";
+			cancel.textContent = "取消";
+			cancel.addEventListener("click", smpCloseOverlay);
+			foot.appendChild(cancel);
+			var ok = document.createElement("button");
+			ok.type = "button";
+			ok.className = "smp-ovl-btn smp-ovl-primary";
+			ok.textContent = "执行";
+			ok.addEventListener("click", function () {
+				var missing = [];
+				var parsed = {};
+				params.forEach(function (p) {
+					var el = inputs[p.name];
+					var raw = el && el.value !== undefined ? el.value : "";
+					var type = smpPType(p);
+					if (type === "boolean") {
+						parsed[p.name] = raw === "true" || raw === true;
+					} else if (type === "number") {
+						if (String(raw).trim() === "") {
+							if (p.required) { missing.push(p.name); return; }
+							parsed[p.name] = p.default;
+						} else if (Number.isFinite(Number(String(raw).trim()))) {
+							parsed[p.name] = Number(String(raw).trim());
+						} else {
+							errBox.textContent = "参数 " + (p.label || p.name) + " 需为数字";
+							errBox.style.display = "";
+							return;
+						}
+					} else {
+						if (String(raw).trim() === "" && p.required) { missing.push(p.name); return; }
+						parsed[p.name] = p.required ? String(raw).trim() : (String(raw).trim() !== "" ? String(raw).trim() : p.default);
+					}
+				});
+				if (missing.length > 0) {
+					errBox.textContent = "请填写必输参数: " + missing.join(", ");
+					errBox.style.display = "";
+					return;
+				}
+				smpCloseOverlay();
+				spec.onSubmit(spec.id, parsed);
+			});
+			foot.appendChild(ok);
+			card.appendChild(foot);
+
+			overlay.appendChild(card);
+			overlay._kd = function (e) { if (e.key === "Escape") smpCloseOverlay(); };
+			document.addEventListener("keydown", overlay._kd, true);
+			document.body.appendChild(overlay);
+			smpOverlay = overlay;
+			// 聚焦第一个输入
+			var first = params.length > 0 ? inputs[params[0].name] : null;
+			if (first && first.focus) first.focus();
+		}
+
+		/** 打开某脚本的参数填写弹窗(供图标点击与必输候选点选调用)。 */
+		function smpOpenDialogFor(id, meta, ctx) {
+			if (!meta || !meta.parameters || meta.parameters.length === 0) {
+				// 无参数可填:直接默认执行
+				var sid0 = smpActiveSession && smpActiveSession.sessionId;
+				if (sid0 && ctx) smpRunScript(ctx, sid0, id, null);
+				return;
+			}
+			smpOpenOverlay({
+				id: id,
+				name: meta.name || id,
+				parameters: meta.parameters,
+				onSubmit: function (pid, paramsObj) {
+					var sid = smpActiveSession && smpActiveSession.sessionId;
+					if (!sid || !ctx) { console.error("[dsh-script-manager] no session for script params"); return; }
+					smpRunScript(ctx, sid, pid, JSON.stringify(paramsObj));
+				}
+			});
+		}
+		// ---- 候选行参数图标(DOM 增强;结构变化自动降级) ----
+		var smpOptMeta = {}; // id -> { parameters, name }(最近一次 options 结果)
+		var smpActiveSession = null; // 最近一次候选打开的 session
+		var smpIconObserver = null;
+		/** 监听宿主 listbox,为带参项行尾注入图标;仅当图标未注入过且行文本含脚本 id。 */
+		function smpWatchIcons(onOpen) {
+			if (typeof MutationObserver === "undefined") return;
+			if (smpIconObserver) { smpIconObserver.disconnect(); smpIconObserver = null; }
+			var pending = 0;
+			smpIconObserver = new MutationObserver(function () {
+				// 找到当前可见 listbox
+				var rows = document.querySelectorAll('[role="listbox"] [role="option"]');
+				if (rows.length === 0) return;
+				for (var i = 0; i < rows.length; i++) {
+					var row = rows[i];
+					if (row.querySelector('[data-smp-param-icon]')) continue;
+					var id = smpFindOptionId(row);
+					var meta = id && smpOptMeta[id];
+					if (!meta || !meta.parameters || meta.parameters.length === 0) continue;
+					if (row.querySelector('[data-smp-param-icon]')) continue;
+					var icon = document.createElement("span");
+					icon.className = "smp-param-icon";
+					icon.setAttribute("data-smp-param-icon", "1");
+					icon.title = "填写参数执行";
+					icon.setAttribute("role", "button");
+					icon.setAttribute("tabindex", "0");
+					icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4.5h12M2 8h12M2 11.5h12"/><circle cx="5" cy="4.5" r="1.6" fill="var(--dsw-alias-bg-base)"/><circle cx="11" cy="8" r="1.6" fill="var(--dsw-alias-bg-base)"/><circle cx="7" cy="11.5" r="1.6" fill="var(--dsw-alias-bg-base)"/></svg>';
+					(function (id2, meta2) {
+						icon.addEventListener("click", function (e) {
+							e.preventDefault();
+							e.stopPropagation();
+							onOpen(id2, meta2);
+						});
+						icon.addEventListener("keydown", function (e) {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								e.stopPropagation();
+								onOpen(id2, meta2);
+							}
+						});
+					})(id, meta);
+					row.appendChild(icon);
+				}
+			});
+			smpIconObserver.observe(document.body, { childList: true, subtree: true });
+		}
+		/** 行文本匹配脚本 id(候选 detail 形如 "<id> | ..." 或 description;优先精确 id)。 */
+		function smpFindOptionId(row) {
+			var text = (row.textContent || "").trim();
+			if (!text) return null;
+			for (var id in smpOptMeta) {
+				if (text.indexOf(id) !== -1) return id;
+			}
+			return null;
+		}
 		// ---- apply ----
 		function apply(ctx) {
 			var commandUi = ctx.commandUi;
@@ -728,35 +1097,57 @@ window.__ModuleLoader__.load({
 					available: function (_session) { return true; },
 					ui: {
 						kind: "popupSelect",
-						options: async function (_session, signal) {
+						options: async function (session, signal) {
 							var res = await fetch("/api/scripts", { signal: signal });
 							if (!res.ok) throw new Error("Failed to load scripts: " + res.status);
 							var scripts = await res.json();
-							// 名称优先作为主显示；简介超出 60 字符则以省略号压缩
-							return scripts.map(function (s) {
+							// 名称优先作为主显示；带参脚本在 detail 尾部标注参数概要；
+							// 并缓存本次候选的参数元供行图标/onSelect 使用
+							var meta = {};
+							var opts = scripts.map(function (s) {
+								var hasP = smpHasParams(s);
+								if (hasP) meta[s.id] = { id: s.id, name: s.name, parameters: s.parameters || [] };
 								var desc = (s.description || '').trim();
-								var clipped = desc.length > 60 ? desc.slice(0, 59) + '…' : desc;
-								return { id: s.id, label: s.name, detail: clipped || s.id };
+								var brief = hasP ? smpParamsBrief(s.parameters) : '';
+								// detail 容纳 id + 参数概要;description 过长则省略
+								var parts = [];
+								if (brief) parts.push(brief);
+								var clipped = desc.length > 48 ? desc.slice(0, 47) + '…' : desc;
+								if (clipped) parts.push(clipped);
+								var detail = parts.length > 0 ? parts.join(' | ') : desc;
+								if (hasP) detail = s.id + ' · ' + detail;
+								var o = { id: s.id, label: s.name, detail: detail || s.id };
+								if (hasP) o._smpParams = s.parameters || [];
+								return o;
 							});
+							smpOptMeta = meta;
+							if (session && session.sessionId) smpActiveSession = session;
+							// 每次候选打开重置一次图标观察(宿主收层后行移除,重开重注)
+							if (typeof smpWatchIcons === "function") {
+								smpWatchIcons(function (id2, meta2) { smpOpenDialogFor(id2, meta2); });
+							}
+							return opts;
 						},
 						onSelect: function (option, session) {
-							// 点选即执行：宿主 popupSelect 会等到 onSelect resolve 才收起弹层，
-							// 期间一直显示“正在应用…”。脚本执行可能耗时较久（默认无上限），
-							// 原地等待会让弹窗卡住。因此不在这里等待命令执行——
-							// 先放行收起弹窗，再把 /script 命令放到后台执行
-							// （链路与直接提交 /script <id> 一致，结果/错误照常进入会话）。
+							// 点选候选行。规则:
+							// - 无必输参数(含无参/全可选带默认) → 直接后台执行(默认参数;服务端自动补默认);
+							// - 存在必输参数 → 不在 onSelect 里等输入,先放行收层,随后打开参数弹窗。
+							// 后台执行:先放行收起弹窗再 execute(链路与直接提交 /script 一致,结果/错误进会话)。
 							var sid = session && session.sessionId;
 							if (!sid) throw new Error("session unavailable");
+							smpActiveSession = session;
 							var id = option.id;
-							Promise.resolve().then(function () {
-								return ctx.remote.commands.execute(sid, "/script " + id, []);
-							}).then(function (result) {
-								if (result && !result.ok) {
-									console.error("[dsh-script-manager] /script " + id + " failed:", (result.error && (result.error.message || result.error)) || result);
-								}
-							}).catch(function (e) {
-								console.error("[dsh-script-manager] /script " + id + " error:", e);
-							});
+							var ps = option._smpParams;
+							var hasRequired = Array.isArray(ps) && ps.some(function (p) { return p.required; });
+							if (hasRequired) {
+								// 收层后弹参数窗(把当前选中 id 记入;宿主 dismiss 后再开避免遮挡)
+								Promise.resolve().then(function () {
+									var meta = smpOptMeta[id] || { id: id, name: option.label || id, parameters: ps };
+									smpOpenDialogFor(id, meta, ctx);
+								});
+								return;
+							}
+							smpRunScript(ctx, sid, id, null);
 						}
 					}
 				});

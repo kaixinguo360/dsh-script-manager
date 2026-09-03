@@ -4,6 +4,7 @@
  */
 
 import type { ParameterSchemaSpec, ValueSchemaSpec } from '@deepseek-ai/dsh-tools';
+import type { NormalizedScriptParameter } from './script-params.js';
 
 /** 脚本定义：一个独立可执行的 PTC 单元 */
 export interface ScriptDefinition {
@@ -31,6 +32,11 @@ export interface ScriptDefinition {
    * 0 与缺省等价（不设置）。
    */
   timeoutMs?: number;
+  /**
+   * 参数化脚本声明：每个参数必输或选输（选输必须有默认值）。
+   * 执行时输入经校验/合并后以 params.<name> 注入脚本。
+   */
+  parameters?: NormalizedScriptParameter[];
   /**
    * 执行契约（可选，多行文本）：脚本执行完成后 agent 应达成的结果。
    * 随执行结果一并提供给 agent 对照判断脚本是否达到预期行为。
@@ -65,6 +71,8 @@ export interface ScriptSummary {
   registerAsTool: boolean;
   /** 若 registerAsTool=true，动态注册的 tool 名称（缺省按 id 派生） */
   toolName?: string;
+  /** 参数声明（带参脚本的候选/动态工具需要；无参脚本缺省） */
+  parameters?: NormalizedScriptParameter[];
   metadata: ScriptMetadata;
 }
 
@@ -82,6 +90,10 @@ export interface ScriptRunResult {
   expectedOutcome?: string;
   successCriteria?: string;
   failureGuidance?: string;
+  /** 本次实际生效参数（输入合并默认；仅带参脚本）。 */
+  params?: Record<string, string | number | boolean>;
+  /** 传入但未声明的参数名（忽略不阻塞，展示供审查）。 */
+  unknownParams?: string[];
 }
 
 /** 脚本管理操作参数 */

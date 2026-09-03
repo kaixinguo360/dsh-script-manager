@@ -96,6 +96,41 @@ return { name: pkg.name };
 }
 ```
 
+### 参数化脚本（parameters）
+
+脚本可声明 `parameters` 数组以便接收输入。执行时输入会先校验、合并默认值，再以
+`params.<name>` 注入脚本（值即参数声明类型：字符串/数字/布尔）。
+
+每个参数：
+
+- `name`（必填）：合法标识符，脚本内以 `params.<name>` 读取；
+- `type`：`string`（默认）/ `number` / `boolean`；
+- `label` / `description`（可选，展示用）；
+- `required`：`true` 为必输；`false`（默认）为选输；
+- `default`：**必输参数不得声明默认值；选输参数必须声明与 type 匹配的默认值**。
+
+```json
+{
+  "parameters": [
+    { "name": "targetUser", "type": "string", "required": false, "default": "private", "label": "目标用户" },
+    { "name": "repoPath", "type": "string", "required": true, "description": "仓库绝对路径" },
+    { "name": "depth", "type": "number", "required": false, "default": 3 }
+  ]
+}
+```
+
+执行方式：
+
+- `script_run({ scriptId, params: { ... } })`（必输缺失会报错并列出参数名）；
+- `/script <id> {"k":"v"}`；
+- `/script` 候选列表：带参脚本右侧有参数图标，点图标可填参执行；点选候选项时——
+  无必输参数则直接以默认值执行，存在必输参数则弹出参数输入窗；
+- 注册为动态工具（`registerAsTool`）的带参脚本，其工具 schema 会反映每个参数
+  （类型/必输/默认说明）。
+
+执行结果文本会带一段 `Params:`（本次实际生效参数，含默认值合并），便于执行完成后
+对照执行契约验收；传入但未声明的参数会被忽略并在结果中提示。
+
 ## 开发
 
 ```bash

@@ -8,6 +8,7 @@ import { CallId } from '@deepseek-ai/dsh-llm';
 import type { Agent, ToolExecutionToken } from '@deepseek-ai/dsh-tools';
 import type { CodeBindingFunction, CodeBindingNamespace } from '@deepseek-ai/dsh-code-runtime';
 import type { ScriptStore } from './script-store.js';
+import { resolveScriptParams, buildParamInjection } from './script-params.js';
 
 /** 会话事件写入的最小表面（与 dsh-tools code-mode 追加 log-only 事件一致）。 */
 interface SessionLike {
@@ -108,6 +109,8 @@ export class ScriptRunner {
    *   runner 为每个内层 tools.* 调用向 agent.session 追加 log-only 的
    *   tool/code-dispatch-start / tool/code-dispatch 事件，使 Web GUI 能像 run_code
    *   一样把脚本内部工具调用渲染为嵌套层级（rootCallId 挂在本调用之下）。
+   * @param params - 本次执行的输入参数(键为声明参数名)。必输缺失/类型不匹配会
+   *   在执行前抛错;未知键忽略并记入 runResult.unknownParams;选输缺省用默认值。
    */
   async run(
     scriptId: string,
@@ -116,6 +119,7 @@ export class ScriptRunner {
     parentToken?: ToolExecutionToken,
     overrideTimeoutMs?: number,
     outer?: ScriptDispatchIdentity,
+    params?: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const script = await this.store.get(scriptId);
     if (!script) {
@@ -130,6 +134,18 @@ export class ScriptRunner {
     const dispatchParent = outer?.callId ?? '';
 
     try {
+      // 参数解析与校验(仅带参脚本;无 parameters 时原样执行且忽略传入)
+      const hasParams = Array.isArray(script.parameters) && script.parameters.length > 0;
+      const resolved = hasParams ? resolveScriptParams(script.parameters, params) : null;
+      if (resolved && resolved.missing.length > 0) {
+        throw new Error('Missing required parameter(s): ' + resolved.missing.join(', '));
+      }
+      if (resolved && resolved.invalid.length > 0) {
+        const bad = resolved.invalid.map((i) => i.name + ' (expected ' + i.expected + ')').join(', ');
+        throw new Error('Invalid parameter type for: ' + bad);
+      }
+      const program = hasParams ? buildParamInjection(resolved!.value) + script.code : script.code;
+
       const bindings: CodeBindingNamespace[] = [{
         global: 'tools',
         functions: this.createToolBindings(agent, parentToken, runSignal.signal, dispatchParent, dispatchRoot),
@@ -137,7 +153,7 @@ export class ScriptRunner {
       }];
 
       const result = await this.ctx.codeRuntime.run({
-        program: script.code,
+        program,
         bindings,
         signal: runSignal.signal,
       });
@@ -153,6 +169,11 @@ export class ScriptRunner {
         executionTime: Date.now() - startTime,
       };
       if (budgetMs !== undefined) runResult.timeoutMs = budgetMs;
+      // 本次生效参数(仅带参脚本;含默认合并),供 Params 段展示与 agent 对照验收
+      if (hasParams && resolved) {
+        runResult.params = resolved.value;
+        if (resolved.unknown.length > 0) runResult.unknownParams = resolved.unknown;
+      }
       // 执行契约直传（仅定义时有值才写入；供 formatScriptResult 展示与 agent 对照验收）
       if (script.expectedOutcome !== undefined) runResult.expectedOutcome = script.expectedOutcome;
       if (script.successCriteria !== undefined) runResult.successCriteria = script.successCriteria;
