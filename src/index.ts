@@ -46,6 +46,8 @@ const SCRIPT_TOOLS_GUIDANCE = [
   '- successCriteria: how to verify it (artifacts, exit codes, output patterns, return fields).',
   '- failureGuidance: how to intervene when the outcome is not as expected or the run failed (adjust inputs, manual steps, or script_update then rerun).',
   'These fields are surfaced with the run result (text section before Logs, plus a Review line). After running a script, first check it against its contract: if the expected outcome is reached, finish; only intervene when it is not (per failureGuidance, avoiding wasteful expansion). Scripts without a contract keep working unchanged.',
+  '',
+  'Parameterized scripts: a script may declare a parameters array to take inputs. Each entry: { name (identifier; the script reads it as params.<name>), type (string/number/boolean, default string), label?, description?, required, default }. Rules: required=true must NOT declare a default (it must be provided per run); required=false MUST declare a default matching type. Provide inputs via script_run({ scriptId, params: {...} }) or /script <id> {\'key\':\'value\'}; the /script candidate UI offers a fill-in popup for scripts with parameters. Effective params (inputs merged with defaults) appear in the run result so the post-run agent can verify against the contract.',
 ].join('');
 
 export function apply(ctx: Context, config: Partial<Config> = {}): void {

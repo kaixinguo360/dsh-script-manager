@@ -46,6 +46,22 @@ export function registerScriptTools(
     registerAsTool: { type: 'boolean', description: 'When true, register the script as a no-argument agent tool named by toolName.' },
     toolName: { type: 'string', description: 'Dynamic tool name when registerAsTool is true; must match ^[a-z_][a-z0-9_]*$; defaults to script_<id>.' },
     timeoutMs: { type: 'number', description: 'Optional per-run timeout budget in milliseconds (positive integer). Defaults to the plugin maxExecutionTime config (0 = unlimited); a script_run({ timeoutMs }) call overrides it for one run.' },
+    parameters: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          name: { type: 'string', description: 'Parameter name - a valid identifier ([A-Za-z_][A-Za-z0-9_]*); the script reads it as params.<name>.' },
+          type: { type: 'string', enum: ['string', 'number', 'boolean'], description: 'Value type (default string).' },
+          label: { type: 'string', description: 'Display label (defaults to name).' },
+          description: { type: 'string', description: 'Short description shown to callers.' },
+          required: { type: 'boolean', description: 'Required parameters have no default and must be provided at run time.' },
+          default: { type: 'json', description: 'Default value for optional parameters (must match type; JSON-scalar string/number/boolean).' },
+        },
+      },
+      description: 'Parameter declarations (optional). Rule: required=true must NOT declare a default; required=false MUST declare a default matching type. Optional parameters run with defaults when omitted.',
+    },
     expectedOutcome: { type: 'string', description: 'Execution contract (optional, multi-line): the outcome the script is intended to achieve once finished. Surfaced with the run result so the agent can check whether the intended behavior was reached.' },
     successCriteria: { type: 'string', description: 'Execution contract (optional, multi-line): how to verify the script reached its intended outcome - concrete checkpoints (artifacts, exit codes, output patterns, return fields). Surfaced with the run result.' },
     failureGuidance: { type: 'string', description: 'Execution contract (optional, multi-line): how the agent should intervene when the outcome is not as expected or the run failed - inputs to adjust, manual steps, or updating the script then rerunning. Surfaced with the run result.' },
@@ -178,6 +194,11 @@ export function registerScriptTools(
         type: 'number',
         description: 'Optional per-run timeout budget in milliseconds (positive integer). Overrides the script/plugin default for this run only. Omit for no override.',
       },
+      params: {
+        type: 'object',
+        additionalProperties: true,
+        description: 'Input parameters keyed by the script\'s declared parameter names (script_get/script_list expose the declarations). Required parameters must be provided; omitted optional parameters fall back to their defaults. Unknown keys are ignored but reported. Value types follow each parameter\'s declared type (string/number/boolean).',
+      },
     },
     output: {
       schema: { type: 'json' },
@@ -190,7 +211,7 @@ export function registerScriptTools(
       const result = await runner.run(args.scriptId, exec.signal, exec.agent, exec.token, args.timeoutMs, {
         callId: String(exec.callId),
         rootCallId: String(exec.rootCallId ?? exec.callId),
-      });
+      }, args.params as Record<string, unknown> | undefined);
       return result;
     },
   })));

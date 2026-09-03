@@ -38,6 +38,16 @@ export function formatScriptResult(result: Record<string, unknown>): string {
     parts.push(indentLines(String(result.failureGuidance)));
   }
 
+  // 本次生效参数（带参脚本；含默认合并后的实际值）
+  if (result.params !== undefined) {
+    parts.push("Params:");
+    parts.push(JSON.stringify(result.params, null, 2));
+  }
+  const unknown = result.unknownParams as string[] | undefined;
+  if (Array.isArray(unknown) && unknown.length > 0) {
+    parts.push("Unknown params ignored: " + unknown.join(", "));
+  }
+
   const logs = result.logs as string[] || [];
   if (logs.length > 0) {
     parts.push("Logs:");

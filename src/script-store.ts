@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import type { ScriptDefinition, ScriptMetadata, ScriptSummary } from './types.js';
 import { isValidToolName } from './script-tool-registry.js';
+import { normalizeScriptParameters, type NormalizedScriptParameter } from './script-params.js';
 
 /** 输入校验错误（REST 层映射为 HTTP 400）。 */
 export class ValidationError extends Error {}
@@ -48,6 +49,15 @@ function validateContractField(value: unknown, field: string): string | undefine
   if (typeof value !== 'string') throw new ValidationError(field + ' must be a string when provided');
   const text = value.trim();
   return text === '' ? undefined : text;
+}
+
+/** 参数声明整段归一：非数组/违规 → ValidationError(400 语义)；空/空数组 → undefined。 */
+function normalizeParamsOrThrow(raw: unknown): NormalizedScriptParameter[] | undefined {
+  try {
+    return normalizeScriptParameters(raw, 'parameters');
+  } catch (error) {
+    throw new ValidationError(error instanceof Error ? error.message : String(error));
+  }
 }
 
 /** 展开 ~ 为用户主目录 */
@@ -168,6 +178,8 @@ export class ScriptStore {
     const expectedOutcome = validateContractField(script.expectedOutcome, 'expectedOutcome');
     const successCriteria = validateContractField(script.successCriteria, 'successCriteria');
     const failureGuidance = validateContractField(script.failureGuidance, 'failureGuidance');
+    // 参数化声明：整段校验归一（空/空数组 → undefined 剔除）
+    const parameters = normalizeParamsOrThrow(script.parameters);
     const description = optionalString(script.description) ?? '';
     const version = optionalString(script.version) ?? '0.1.0';
     const author = optionalString(script.author) ?? '';
@@ -189,14 +201,11 @@ export class ScriptStore {
       ...(expectedOutcome !== undefined ? { expectedOutcome } : {}),
       ...(successCriteria !== undefined ? { successCriteria } : {}),
       ...(failureGuidance !== undefined ? { failureGuidance } : {}),
+      ...(parameters !== undefined ? { parameters } : {}),
       metadata: { createdAt: now, updatedAt: now, executionCount: 0 },
     } as ScriptDefinition;
     await writeFile(this.getScriptPath(id), JSON.stringify(fullScript, null, 2), 'utf-8');
-    this.index.set(id, {
-      id: fullScript.id, name: fullScript.name, description: fullScript.description,
-      version: fullScript.version, author: fullScript.author, tags: fullScript.tags,
-      registerAsTool: fullScript.registerAsTool, ...(fullScript.toolName !== undefined ? { toolName: fullScript.toolName } : {}), ...(fullScript.timeoutMs !== undefined ? { timeoutMs: fullScript.timeoutMs } : {}), metadata: fullScript.metadata,
-    });
+    this.index.set(id, this.toSummary(fullScript));
     await this.saveIndex();
     return fullScript;
   }
@@ -224,6 +233,9 @@ export class ScriptStore {
     }
     if (patch.toolName !== undefined) validateToolName(patch.toolName);
     if (patch.timeoutMs !== undefined) validateTimeoutMs(patch.timeoutMs);
+    // 参数化声明：显式提供时整段归一（空/空数组 → 删除该字段）
+    const parametersPatch = patch.parameters !== undefined ? normalizeParamsOrThrow(patch.parameters) : undefined;
+    const clearParameters = patch.parameters !== undefined && parametersPatch === undefined;
     // 契约字段：仅校验显式提供者；空串/undefined 归一（空串视为删除该字段）
     const contractPatch: Partial<ScriptDefinition> = {};
     for (const key of ['expectedOutcome', 'successCriteria', 'failureGuidance'] as const) {
@@ -237,8 +249,10 @@ export class ScriptStore {
       ...existing, ...patch, id: nextId,
       // 契约字段走归一后的 contractPatch：空串即删除(不残留 undefined/空串键)
       ...(Object.keys(contractPatch).length > 0 ? contractPatch : {}),
+      ...(parametersPatch !== undefined ? { parameters: parametersPatch } : {}),
       metadata: { ...existing.metadata, ...patch.metadata, updatedAt: new Date().toISOString() },
     } as ScriptDefinition;
+    if (clearParameters) delete (updated as Record<string, unknown>).parameters;
     // 显式置空串删除：展开删除三个键(若有)
     for (const key of ['expectedOutcome', 'successCriteria', 'failureGuidance'] as const) {
       if (patch[key] !== undefined && contractPatch[key] === undefined) delete (updated as Record<string, unknown>)[key];
@@ -248,11 +262,7 @@ export class ScriptStore {
       try { await unlink(this.getScriptPath(scriptId)); } catch { /* 源文件可能不存在 */ }
     }
     this.index.delete(scriptId);
-    this.index.set(nextId, {
-      id: updated.id, name: updated.name, description: updated.description,
-      version: updated.version, author: updated.author, tags: updated.tags,
-      registerAsTool: updated.registerAsTool, ...(updated.toolName !== undefined ? { toolName: updated.toolName } : {}), ...(updated.timeoutMs !== undefined ? { timeoutMs: updated.timeoutMs } : {}), metadata: updated.metadata,
-    });
+    this.index.set(nextId, this.toSummary(updated));
     await this.saveIndex();
     return updated;
   }
@@ -280,6 +290,19 @@ export class ScriptStore {
         options.tags.some(tag => s.tags.includes(tag));
       return matchesQuery && matchesTags;
     });
+  }
+
+  /** 由完整定义构造摘要（含可选字段展开,无 undefined 键）。 */
+  private toSummary(full: ScriptDefinition): ScriptSummary {
+    return {
+      id: full.id, name: full.name, description: full.description,
+      version: full.version, author: full.author, tags: full.tags,
+      registerAsTool: full.registerAsTool,
+      ...(full.toolName !== undefined ? { toolName: full.toolName } : {}),
+      ...(full.timeoutMs !== undefined ? { timeoutMs: full.timeoutMs } : {}),
+      ...(full.parameters !== undefined ? { parameters: full.parameters } : {}),
+      metadata: full.metadata,
+    };
   }
 
   /** 记录执行统计 */
