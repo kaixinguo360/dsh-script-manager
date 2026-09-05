@@ -15,6 +15,13 @@ DSH 自定义操作脚本管理插件
 - **层级执行展示**：脚本内层 `tools.*` 调用以 log-only 的 `tool/code-dispatch-start` /
   `tool/code-dispatch` 事件写入会话（与 run_code/PTC 同一契约，不进入模型上下文），
   Web GUI 将脚本内部调用渲染为 PTC 同款嵌套工具卡片
+- **变更历史**：脚本的每次创建/编辑/改名记一条变更日志（时间、入口面、修订号、变更字段，
+  以及该版本完整定义快照含 code），可回溯"上一版长什么样 / 改坏了什么"
+- **执行历史**：每次执行记一条（时间、修订号、调用面、生效参数、成败、错误、耗时、返回值摘要），
+  能看出"哪个版本执行的"，且可与变更历史同修订号的快照联动取回当时代码
+- **按脚本分储、存储分离**：历史按脚本存于独立数据目录（默认 `<scriptsDir>/.state/<scriptId>/`，
+  可用 `stateDir` 配置指到任意绝对路径），绝不写入脚本文件与 `index.json`；
+  删除脚本时同步整删该脚本的历史目录；目录结构为每个脚本预留后续扩展空间
 
 ## 安装
 
@@ -81,18 +88,6 @@ const result = await tools.read({ file_path: "package.json" });
 const pkg = JSON.parse(result.lines.map(l => l.text).join(""));
 console.log("项目:", pkg.name);
 return { name: pkg.name };
-```
-
-## 配置
-
-```yaml
-- insert:
-    - id: script-manager
-      name: "dsh-script-manager"
-      config:
-        scriptsDir: ~/.dsh/scripts
-        maxExecutionTime: 0      # 默认执行超时(ms)；0 = 不限制，脚本级/调用级可覆盖
-        enableWebUI: true
 ```
 
 ### 执行超时（timeout）
@@ -178,6 +173,32 @@ tools.git_update({ repoPath: "/home/kaixinguo/work/my-repo" })
 ```
 
 脚本更新（改名、改参数、关闭注册）后，动态工具会自动同步。
+
+### 脚本历史（变更与执行）
+
+脚本的**变更与执行**会被自动记录，用于排查和版本对照。每次编辑/改名递增修订号（revision），
+并保存该版本完整定义快照（含 code）；每次执行记录修订号、参数、成败与耗时。
+
+- Agent 工具：`script_change_history()` / `script_run_history()`（按脚本或跨脚本查询）
+- Web UI：脚本卡片"历史"按钮，支持展开查看代码并前后对照
+- 配置：`historyEnabled`（开关）、`historyChangesMax` / `historyRunsMax`（保留条数）
+- 删除脚本会同步删除其历史；数据存于 `stateDir`，与脚本文件完全分离
+
+## 配置
+
+```yaml
+- insert:
+    - id: script-manager
+      name: "dsh-script-manager"
+      config:
+        scriptsDir: ~/.dsh/scripts
+        maxExecutionTime: 0      # 默认执行超时(ms)；0 = 不限制，脚本级/调用级可覆盖
+        enableWebUI: true
+        historyEnabled: true     # 是否记录脚本变更/执行历史；false = 完全禁用
+        stateDir: ""             # 历史数据目录；留空 = <scriptsDir>/.state，可填任意绝对路径彻底分离
+        historyChangesMax: 200   # 每脚本变更历史保留条数（超限压缩，保留最新 N 条）
+        historyRunsMax: 500      # 每脚本执行历史保留条数（超限压缩，保留最新 N 条）
+```
 
 ## 开发
 
