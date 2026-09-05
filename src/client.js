@@ -158,7 +158,36 @@ window.__ModuleLoader__.load({
 			".smp-hpre{margin:0;font-family:var(--dsh-font-mono,ui-monospace,Menlo,Consolas,monospace);font-size:11px;line-height:16px;white-space:pre-wrap;word-break:break-all;color:var(--dsw-alias-label-primary)}",
 			".smp-hnote{font-size:11px;color:var(--dsw-alias-label-tertiary);line-height:16px}",
 			".smp-hcode{display:flex;flex-direction:column;gap:6px;min-width:0}",
-			".smp-hcode-title{font-size:11px;color:var(--dsw-alias-label-tertiary);line-height:14px}"
+			".smp-hcode-title{font-size:11px;color:var(--dsw-alias-label-tertiary);line-height:14px}",
+			"/* 参数输入浮层 — 历史列表视图 */",
+			".smp-ovl-history-head{display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--dsw-alias-border-l2)}",
+			".smp-ovl-history-title{flex:1;font-size:13px;font-weight:500;color:var(--dsw-alias-label-primary)}",
+			".smp-ovl-history-list{display:flex;flex-direction:column;gap:6px;flex:1;overflow-y:auto}",
+			".smp-ovl-history-empty{font-size:12px;color:var(--dsw-alias-label-tertiary);padding:12px 0;text-align:center}",
+			".smp-ovl-history-item{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;overflow:hidden}",
+			".smp-ovl-history-item-main{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer}",
+			".smp-ovl-history-item-main:hover{background:var(--dsw-alias-interactive-bg-hover)}",
+			".smp-ovl-history-item-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;overflow:hidden}",
+			".smp-ovl-history-item-time{color:var(--dsw-alias-label-tertiary);font-size:11px}",
+			".smp-ovl-history-item-caller{color:var(--dsw-alias-label-tertiary);font-size:11px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%}",
+			".smp-ovl-history-item-timerow{display:flex;align-items:center;gap:6px;min-width:0}",
+			".smp-ovl-history-item-chev{flex:none;color:var(--dsw-alias-label-tertiary);font-size:11px;align-self:center;margin-left:auto;padding-left:8px}",
+			".smp-ovl-history-item-summary{color:var(--dsw-alias-label-secondary);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+			".smp-ovl-history-item-badge{flex:none;font-size:10px;line-height:14px;padding:0 5px;border-radius:4px;border:1px solid;white-space:nowrap}",
+			".smp-ovl-history-item-ok{border-color:var(--dsw-alias-state-success-primary,#2faf5f);color:var(--dsw-alias-state-success-primary,#2faf5f)}",
+			".smp-ovl-history-item-bad{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}",
+			".smp-ovl-history-item-detail{padding:6px 10px 10px;border-top:1px dashed var(--dsw-alias-border-l2);background:var(--dsw-alias-markdown-code-block)}",
+			".smp-ovl-history-item-pre{margin:0;font-family:var(--dsh-font-mono,monospace);font-size:11px;line-height:16px;white-space:pre-wrap;word-break:break-all;color:var(--dsw-alias-label-primary)}",
+			".smp-ovl-history-item-dmeta{font-size:11px;line-height:16px;color:var(--dsw-alias-label-tertiary);padding-bottom:6px;border-bottom:1px solid var(--dsw-alias-border-l2);margin-bottom:6px}",
+			".smp-ovl-history-item-sec{font-size:11px;font-weight:500;color:var(--dsw-alias-label-secondary);line-height:16px;margin:6px 0 3px}",
+			".smp-ovl-history-item-kv{display:flex;gap:8px;font-size:11px;line-height:18px;min-width:0}",
+			".smp-ovl-history-item-k{flex:none;min-width:90px;max-width:40%;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+			".smp-ovl-history-item-v{flex:1;min-width:0;color:var(--dsw-alias-label-primary);word-break:break-all;white-space:pre-wrap}",
+			".smp-ovl-history-item-select{margin-top:6px;display:flex;justify-content:flex-end}",
+			".smp-ovl-history-btn{border:1px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:#fff;border-radius:6px;height:26px;padding:0 12px;font-size:12px;cursor:pointer}",
+			".smp-ovl-history-btn:hover{opacity:0.9}",
+			".smp-ovl-hist{font-size:12px;color:var(--dsw-alias-label-tertiary);cursor:pointer;padding:2px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:transparent;white-space:nowrap}",
+			".smp-ovl-hist:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-secondary)}"
 		].join("");
 		var tagId = "dsh-script-manager/smp.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=\"" + tagId + "\"]") === null) {
@@ -1053,6 +1082,18 @@ window.__ModuleLoader__.load({
 		// - 参数填写用自绘遮罩浮层(原生 DOM,不依赖 react-dom)。
 
 		function smpPType(p) { return p && p.type ? p.type : "string"; }
+		/** 执行来源友好化：script_run → script_run；dynamic-tool:xxx → 工具 xxx；其余原样。 */
+		function smpCallerLabel(c) {
+			if (!c) return "";
+			var s = String(c);
+			if (s.indexOf("dynamic-tool:") === 0) return "工具 " + s.slice("dynamic-tool:".length);
+			return s;
+		}
+		/** 文本截断（供展示用，保留原始值不变）。 */
+		function smpTrimText(s, n) {
+			s = s === null || s === undefined ? "" : String(s);
+			return s.length > n ? s.substring(0, n) + "…" : s;
+		}
 		function smpHasParams(s) { return Array.isArray(s && s.parameters) && s.parameters.length > 0; }
 		function smpHasRequired(s) { return smpHasParams(s) && s.parameters.some(function (p) { return p.required; }); }
 
@@ -1098,11 +1139,13 @@ window.__ModuleLoader__.load({
 		function smpOpenOverlay(spec) {
 			smpCloseOverlay();
 			var params = spec.parameters || [];
-			var values = {};
+			var api = spec.api || smpApi;
+			var view = "form";
+			var currentValues = {};
 			var inputs = {};
 			var errBox;
 			params.forEach(function (p) {
-				if (!p.required && p.default !== undefined) values[p.name] = p.default;
+				if (!p.required && p.default !== undefined) currentValues[p.name] = p.default;
 			});
 
 			var overlay = document.createElement("div");
@@ -1119,6 +1162,16 @@ window.__ModuleLoader__.load({
 			title.className = "smp-ovl-title";
 			title.textContent = spec.name;
 			head.appendChild(title);
+			var histBtn = null;
+			if (api) {
+				histBtn = document.createElement("button");
+				histBtn.type = "button";
+				histBtn.className = "smp-ovl-hist";
+				histBtn.textContent = "历史参数";
+				histBtn.title = "从历史执行中选取参数填入";
+				histBtn.addEventListener("click", function () { switchView(view === "form" ? "history" : "form"); });
+				head.appendChild(histBtn);
+			}
 			var close = document.createElement("button");
 			close.type = "button";
 			close.className = "smp-ovl-x";
@@ -1130,51 +1183,6 @@ window.__ModuleLoader__.load({
 
 			var body = document.createElement("div");
 			body.className = "smp-ovl-body";
-			params.forEach(function (p) {
-				var req = !!p.required;
-				var type = smpPType(p);
-				var row = document.createElement("label");
-				row.className = "smp-ovl-row";
-				var lbl = document.createElement("span");
-				lbl.className = "smp-ovl-lbl";
-				lbl.textContent = (p.label || p.name) + (req ? " *" : "");
-				if (p.description) {
-					var tip = document.createElement("span");
-					tip.className = "smp-ovl-tip";
-					tip.textContent = p.description;
-					lbl.appendChild(document.createTextNode(" "));
-					lbl.appendChild(tip);
-				}
-				row.appendChild(lbl);
-				if (type === "boolean") {
-					var sel = document.createElement("select");
-					sel.className = "smp-ovl-input";
-					var defBool = !req && p.default === true; // 选输且默认 true → 预选"是";其余(必输/默认false) → "否"
-					["true", "false"].forEach(function (v) {
-						var o = document.createElement("option");
-						o.value = v;
-						o.textContent = v === "true" ? "是 / true" : "否 / false";
-						if ((v === "true") === defBool) o.selected = true;
-						sel.appendChild(o);
-					});
-					inputs[p.name] = sel;
-					row.appendChild(sel);
-				} else {
-					var inp = document.createElement("input");
-					inp.className = "smp-ovl-input";
-					inp.type = type === "number" ? "text" : "text";
-					inp.placeholder = req ? "必填" : ("默认: " + smpBriefDefault(p));
-					inputs[p.name] = inp;
-					row.appendChild(inp);
-				}
-				body.appendChild(row);
-			});
-			errBox = document.createElement("div");
-			errBox.className = "smp-ovl-err";
-			errBox.style.display = "none";
-			body.appendChild(errBox);
-			card.appendChild(body);
-
 			var foot = document.createElement("div");
 			foot.className = "smp-ovl-foot";
 			var cancel = document.createElement("button");
@@ -1221,6 +1229,223 @@ window.__ModuleLoader__.load({
 				spec.onSubmit(spec.id, parsed);
 			});
 			foot.appendChild(ok);
+
+			// ---- form 视图：参数输入 ----
+			function renderForm() {
+				body.innerHTML = "";
+				params.forEach(function (p) {
+					var req = !!p.required;
+					var type = smpPType(p);
+					var row = document.createElement("label");
+					row.className = "smp-ovl-row";
+					var lbl = document.createElement("span");
+					lbl.className = "smp-ovl-lbl";
+					lbl.textContent = (p.label || p.name) + (req ? " *" : "");
+					if (p.description) {
+						var tip = document.createElement("span");
+						tip.className = "smp-ovl-tip";
+						tip.textContent = p.description;
+						lbl.appendChild(document.createTextNode(" "));
+						lbl.appendChild(tip);
+					}
+					row.appendChild(lbl);
+					if (type === "boolean") {
+						var sel = document.createElement("select");
+						sel.className = "smp-ovl-input";
+						var cvB = currentValues[p.name];
+						var cvHas = cvB !== undefined && cvB !== null;
+						var selTrue = cvHas ? (cvB === true || cvB === "true") : (!req && p.default === true);
+						["true", "false"].forEach(function (v) {
+							var o = document.createElement("option");
+							o.value = v;
+							o.textContent = v === "true" ? "是 / true" : "否 / false";
+							if ((v === "true") === selTrue) o.selected = true;
+							sel.appendChild(o);
+						});
+						inputs[p.name] = sel;
+						row.appendChild(sel);
+					} else {
+						var inp = document.createElement("input");
+						inp.className = "smp-ovl-input";
+						inp.type = "text";
+						inp.placeholder = req ? "必填" : ("默认: " + smpBriefDefault(p));
+						var cv = currentValues[p.name];
+						inp.value = cv !== undefined && cv !== null ? String(cv) : "";
+						inputs[p.name] = inp;
+						row.appendChild(inp);
+					}
+					body.appendChild(row);
+				});
+				errBox = document.createElement("div");
+				errBox.className = "smp-ovl-err";
+				errBox.style.display = "none";
+				body.appendChild(errBox);
+			}
+
+			// ---- history 视图：历史执行参数列表 ----
+			function renderHistory() {
+				body.innerHTML = "";
+				var wrap = document.createElement("div");
+				wrap.className = "smp-ovl-history-head";
+				var hTitle = document.createElement("span");
+				hTitle.className = "smp-ovl-history-title";
+				hTitle.textContent = "选择历史参数";
+				wrap.appendChild(hTitle);
+				body.appendChild(wrap);
+				var list = document.createElement("div");
+				list.className = "smp-ovl-history-list";
+				body.appendChild(list);
+				var loading = document.createElement("div");
+				loading.className = "smp-ovl-history-empty";
+				loading.textContent = "加载中…";
+				list.appendChild(loading);
+				foot.style.display = "none";
+				api.history("runs", { scriptId: spec.id, limit: 10 }).then(function (data) {
+					var entries = (data && Array.isArray(data.entries)) ? data.entries : [];
+					var filtered = entries.filter(function (e) { return e.params && typeof e.params === "object" && Object.keys(e.params).length > 0; });
+					list.innerHTML = "";
+					if (filtered.length === 0) {
+						var empty = document.createElement("div");
+						empty.className = "smp-ovl-history-empty";
+						empty.textContent = entries.length === 0 ? "该脚本暂无执行记录" : "历史记录中暂无带参数的可选项";
+						list.appendChild(empty);
+						return;
+					}
+					filtered.forEach(function (e) {
+						var item = document.createElement("div");
+						item.className = "smp-ovl-history-item";
+						var main = document.createElement("div");
+						main.className = "smp-ovl-history-item-main";
+						var badge = document.createElement("span");
+						badge.className = "smp-ovl-history-item-badge " + (e.success ? "smp-ovl-history-item-ok" : "smp-ovl-history-item-bad");
+						badge.textContent = e.success ? "成功" : "失败";
+						main.appendChild(badge);
+						var meta = document.createElement("div");
+						meta.className = "smp-ovl-history-item-meta";
+						var timeRow = document.createElement("div");
+						timeRow.className = "smp-ovl-history-item-timerow";
+						var time = document.createElement("span");
+						time.className = "smp-ovl-history-item-time";
+						try { var d = new Date(e.ts); var pad = function (n) { return (n < 10 ? "0" : "") + n; }; time.textContent = (d.getMonth() + 1) + "/" + d.getDate() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); } catch (x) { time.textContent = e.ts || ""; }
+						timeRow.appendChild(time);
+						if (e.caller) {
+							var callerSpan = document.createElement("span");
+							callerSpan.className = "smp-ovl-history-item-caller";
+							callerSpan.textContent = smpCallerLabel(e.caller);
+							callerSpan.title = "调用方: " + e.caller;
+							timeRow.appendChild(callerSpan);
+						}
+						meta.appendChild(timeRow);
+						var summary = document.createElement("span");
+						summary.className = "smp-ovl-history-item-summary";
+						var paramStr = Object.keys(e.params).map(function (k) { return k + "=" + String(e.params[k]).substring(0, 20); }).join(", ");
+						summary.textContent = paramStr.length > 60 ? paramStr.substring(0, 60) + "…" : paramStr;
+						meta.appendChild(summary);
+						main.appendChild(meta);
+						var chev = document.createElement("span");
+						chev.className = "smp-ovl-history-item-chev";
+						chev.textContent = "▸";
+						main.appendChild(chev);
+						item.appendChild(main);
+						var detail = null;
+						var expanded = false;
+						main.addEventListener("click", function () {
+							expanded = !expanded;
+							chev.textContent = expanded ? "▾" : "▸";
+							if (expanded) {
+								if (!detail) {
+									detail = document.createElement("div");
+									detail.className = "smp-ovl-history-item-detail";
+									var dmetaBits = [];
+									if (e.caller) dmetaBits.push("调用方 " + smpCallerLabel(e.caller));
+									if (e.revision !== undefined && e.revision !== null) dmetaBits.push("修订 #" + e.revision);
+									if (e.executionTime !== undefined && e.executionTime !== null) dmetaBits.push("耗时 " + e.executionTime + "ms");
+									if (dmetaBits.length > 0) {
+										var dmeta = document.createElement("div");
+										dmeta.className = "smp-ovl-history-item-dmeta";
+										dmeta.textContent = dmetaBits.join(" · ");
+										detail.appendChild(dmeta);
+									}
+									var sec1 = document.createElement("div");
+									sec1.className = "smp-ovl-history-item-sec";
+									sec1.textContent = "参数";
+									detail.appendChild(sec1);
+									Object.keys(e.params).forEach(function (k) {
+										var kv = document.createElement("div");
+										kv.className = "smp-ovl-history-item-kv";
+										var kEl = document.createElement("span");
+										kEl.className = "smp-ovl-history-item-k";
+										kEl.textContent = k;
+										kv.appendChild(kEl);
+										var vEl = document.createElement("span");
+										vEl.className = "smp-ovl-history-item-v";
+										vEl.textContent = String(e.params[k]);
+										kv.appendChild(vEl);
+										detail.appendChild(kv);
+									});
+									var extra = !e.success ? (e.error || "") : (typeof e.value === "string" ? e.value : "");
+									if (extra) {
+										var sec2 = document.createElement("div");
+										sec2.className = "smp-ovl-history-item-sec";
+										sec2.textContent = e.success ? "返回" : "错误";
+										detail.appendChild(sec2);
+										var pre2 = document.createElement("pre");
+										pre2.className = "smp-ovl-history-item-pre";
+										pre2.textContent = smpTrimText(extra, 400);
+										detail.appendChild(pre2);
+									}
+									var selBtn = document.createElement("div");
+									selBtn.className = "smp-ovl-history-item-select";
+									var selBtnInner = document.createElement("button");
+									selBtnInner.type = "button";
+									selBtnInner.className = "smp-ovl-history-btn";
+									selBtnInner.textContent = "填入参数";
+									selBtnInner.addEventListener("click", function (ev) {
+										ev.stopPropagation();
+										for (var k in e.params) { if (e.params.hasOwnProperty(k)) currentValues[k] = e.params[k]; }
+										switchView("form");
+									});
+									selBtn.appendChild(selBtnInner);
+									detail.appendChild(selBtn);
+								}
+								item.appendChild(detail);
+							} else if (detail && detail.parentNode) {
+								detail.parentNode.removeChild(detail);
+							}
+						});
+						list.appendChild(item);
+					});
+				}).catch(function () {
+					list.innerHTML = "";
+					var fail = document.createElement("div");
+					fail.className = "smp-ovl-history-empty";
+					fail.textContent = "历史参数加载失败";
+					list.appendChild(fail);
+				});
+			}
+
+			// ---- 视图切换 ----
+			function switchView(v) {
+				var leavingForm = view === "form" && v === "history"; // 仅离开 form 时才保存输入(避免 inputs 指向已脱离 DOM 的旧元素覆盖新值)
+				view = v;
+				if (leavingForm) {
+					params.forEach(function (p) {
+						var el = inputs[p.name];
+						if (el) currentValues[p.name] = el.value;
+					});
+				}
+				if (v === "form") {
+					renderForm();
+					foot.style.display = "";
+					if (histBtn) histBtn.textContent = "历史参数";
+				} else {
+					renderHistory();
+					if (histBtn) histBtn.textContent = "返回";
+				}
+			}
+
+			renderForm();
+			card.appendChild(body);
 			card.appendChild(foot);
 
 			overlay.appendChild(card);
@@ -1245,6 +1470,7 @@ window.__ModuleLoader__.load({
 				id: id,
 				name: meta.name || id,
 				parameters: meta.parameters,
+				api: smpApi,
 				onSubmit: function (pid, paramsObj) {
 					var sid = smpActiveSession && smpActiveSession.sessionId;
 					if (!sid || !ctx) { console.error("[dsh-script-manager] no session for script params"); return; }
@@ -1256,6 +1482,7 @@ window.__ModuleLoader__.load({
 		var smpOptMeta = {}; // id -> { parameters, name }(最近一次 options 结果)
 		var smpActiveSession = null; // 最近一次候选打开的 session
 		var smpIconObserver = null;
+		var smpApi = null;
 		/** 监听宿主 listbox,为带参项行尾注入图标;仅当图标未注入过且行文本含脚本 id。 */
 		function smpWatchIcons(onOpen) {
 			if (typeof MutationObserver === "undefined") return;
@@ -1375,6 +1602,7 @@ window.__ModuleLoader__.load({
 			var slots = ctx.slots;
 			if (slots && typeof slots.inject === "function") {
 				var api = makeApi();
+				smpApi = api;
 				ctx.effect(function () {
 					return slots.inject("settings.section", function () {
 						return slots.register({
