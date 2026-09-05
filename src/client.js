@@ -1197,6 +1197,7 @@ window.__ModuleLoader__.load({
 			ok.textContent = "执行";
 			ok.addEventListener("click", function () {
 				var missing = [];
+				var numErr = "";
 				var parsed = {};
 				params.forEach(function (p) {
 					var el = inputs[p.name];
@@ -1211,8 +1212,7 @@ window.__ModuleLoader__.load({
 						} else if (Number.isFinite(Number(String(raw).trim()))) {
 							parsed[p.name] = Number(String(raw).trim());
 						} else {
-							errBox.textContent = "参数 " + (p.label || p.name) + " 需为数字";
-							errBox.style.display = "";
+							numErr = (p.label || p.name);
 							return;
 						}
 					} else {
@@ -1220,6 +1220,11 @@ window.__ModuleLoader__.load({
 						parsed[p.name] = p.required ? String(raw).trim() : (String(raw).trim() !== "" ? String(raw).trim() : p.default);
 					}
 				});
+				if (numErr) {
+					errBox.textContent = "参数 " + numErr + " 需为数字";
+					errBox.style.display = "";
+					return;
+				}
 				if (missing.length > 0) {
 					errBox.textContent = "请填写必输参数: " + missing.join(", ");
 					errBox.style.display = "";
@@ -1570,7 +1575,7 @@ window.__ModuleLoader__.load({
 							if (session && session.sessionId) smpActiveSession = session;
 							// 每次候选打开重置一次图标观察(宿主收层后行移除,重开重注)
 							if (typeof smpWatchIcons === "function") {
-								smpWatchIcons(function (id2, meta2) { smpOpenDialogFor(id2, meta2); });
+								smpWatchIcons(function (id2, meta2) { smpOpenDialogFor(id2, meta2, ctx); });
 							}
 							return opts;
 						},
