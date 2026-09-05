@@ -61,6 +61,9 @@ export async function executeToolCallWithEvents(
   args: Record<string, unknown>,
   signal?: AbortSignal,
   parentToken?: ToolExecutionToken,
+  /** 自定义执行器：提供时绕过 ctx.tools.execute，直接调用目标逻辑。
+   *  调用方负责构造完整的 ToolExecutionResult（含 content/isError/value）。 */
+  execFn?: (callId: string) => Promise<ToolExecutionResult>,
 ): Promise<ToolExecutionResult> {
   const session = agent.session as unknown as SessionLike;
 
@@ -103,18 +106,24 @@ export async function executeToolCallWithEvents(
     arguments: JSON.stringify(args),
   }).seq;
 
-  // 5. 执行工具（走完整工具管道：pre-execute、审批、body、post-execute）
+  // 5. 执行工具
+  //    execFn: 调用方提供自定义执行器（如直接调用 runner.run），绕过工具管道
+  //    默认: 走完整工具管道（pre-execute、审批、body、post-execute）
   let result: ToolExecutionResult;
   try {
-    const outcome = await ctx.tools.execute({
-      callId,
-      name: toolName,
-      arguments: args,
-      agent,
-      ...(parentToken !== undefined ? { parent: parentToken } : {}),
-      signal: signal ?? new AbortController().signal,
-    });
-    result = outcome as unknown as ToolExecutionResult;
+    if (execFn) {
+      result = await execFn(callId);
+    } else {
+      const outcome = await ctx.tools.execute({
+        callId,
+        name: toolName,
+        arguments: args,
+        agent,
+        ...(parentToken !== undefined ? { parent: parentToken } : {}),
+        signal: signal ?? new AbortController().signal,
+      });
+      result = outcome as unknown as ToolExecutionResult;
+    }
   } catch (error) {
     // 工具框架失败：构造错误结果
     const message = error instanceof Error ? error.message : String(error);

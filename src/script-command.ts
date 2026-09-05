@@ -5,7 +5,8 @@
 
 import type { Context } from '@deepseek-ai/cordis';
 import { CallId, createUserMessage } from '@deepseek-ai/dsh-llm';
-import type { ToolExecutionToken } from '@deepseek-ai/dsh-tools';
+import type { ToolExecutionResult, ToolExecutionToken } from '@deepseek-ai/dsh-tools';
+import { formatScriptResult } from './format-script-result.js';
 import type { ScriptStore } from './script-store.js';
 import type { ScriptRunner } from './script-runner.js';
 import { executeToolCallWithEvents } from './script-tool-events.js';
@@ -143,9 +144,9 @@ export function registerScriptCommand(
 
       let toolResult;
       if (agent && agent.session) {
-        // 模拟一次完整的 agent 工具调用回合（写入 turn/start → step/start →
-        // assistant/message → tool/call → tool/result → step/end → turn/end），
-        // 与会话中 agent 直接调用 script_run 的事件序列一致。
+        // 写入标准会话事件序列（turn/start → tool/call → tool/result → turn/end），
+        // 但绕过 script_run 工具管道，直接调用 runner.run() 并传入真实来源标记，
+        // 使执行历史 caller 字段正确区分入口。
         toolResult = await executeToolCallWithEvents(
           ctx,
           agent,
@@ -153,6 +154,24 @@ export function registerScriptCommand(
           runArgs,
           invocation.signal,
           parentToken,
+          // 自定义执行器：直调 runner.run，传入 runSource='/script'
+          async (_callId: string): Promise<ToolExecutionResult> => {
+            const runResult = await runner.run(
+              scriptName,
+              invocation.signal,
+              agent,
+              parentToken,
+              jsonArgs.timeoutMs,
+              { callId: _callId, rootCallId: _callId },
+              jsonArgs.params,
+              '/script',
+            );
+            return {
+              isError: false,
+              content: [{ type: 'text', text: formatScriptResult(runResult) }],
+              value: runResult,
+            } as unknown as ToolExecutionResult;
+          },
         );
       } else {
         // 回退：无 agent/session 上下文时直接执行（不写事件）
