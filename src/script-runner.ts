@@ -8,7 +8,13 @@ import { CallId } from '@deepseek-ai/dsh-llm';
 import type { Agent, ToolExecutionToken } from '@deepseek-ai/dsh-tools';
 import type { CodeBindingFunction, CodeBindingNamespace } from '@deepseek-ai/dsh-code-runtime';
 import type { ScriptStore } from './script-store.js';
+import type { HistoryStore } from './history-store.js';
+import type { ScriptRunRecord } from './types.js';
 import { resolveScriptParams, buildParamInjection } from './script-params.js';
+
+/** 执行记录中的 error / value 截断上限（控制单行体积）。 */
+const RUN_ERROR_MAX = 2000;
+const RUN_VALUE_MAX = 4000;
 
 /** 会话事件写入的最小表面（与 dsh-tools code-mode 追加 log-only 事件一致）。 */
 interface SessionLike {
@@ -37,6 +43,8 @@ export interface ScriptRunnerOptions {
    * > 本默认值。
    */
   defaultTimeoutMs?: number;
+  /** 历史存储：提供时每次执行向该脚本 runs.jsonl 记一条摘要（失败不影响执行）。 */
+  history?: HistoryStore;
 }
 
 /** 将超时预算归一为可选数字：非正/非法/缺省一律视为无预算。 */
@@ -82,6 +90,7 @@ function createRunSignal(outer?: AbortSignal, budgetMs?: number): { signal: Abor
 /** 脚本执行器 */
 export class ScriptRunner {
   private defaultTimeoutMs: number;
+  private history?: HistoryStore;
 
   constructor(
     private store: ScriptStore,
@@ -89,6 +98,7 @@ export class ScriptRunner {
     options: ScriptRunnerOptions = {},
   ) {
     this.defaultTimeoutMs = normalizeBudgetMs(options.defaultTimeoutMs) ?? 0;
+    this.history = options.history;
   }
 
   /**
@@ -111,6 +121,8 @@ export class ScriptRunner {
    *   一样把脚本内部工具调用渲染为嵌套层级（rootCallId 挂在本调用之下）。
    * @param params - 本次执行的输入参数(键为声明参数名)。必输缺失/类型不匹配会
    *   在执行前抛错;未知键忽略并记入 runResult.unknownParams;选输缺省用默认值。
+   * @param runSource - 本次执行来源面（'script_run' / 'dynamic-tool:<name>' 等），
+   *   写入执行历史 caller 字段；缺省不标。
    */
   async run(
     scriptId: string,
@@ -120,11 +132,14 @@ export class ScriptRunner {
     overrideTimeoutMs?: number,
     outer?: ScriptDispatchIdentity,
     params?: Record<string, unknown>,
+    runSource?: string,
   ): Promise<Record<string, unknown>> {
     const script = await this.store.get(scriptId);
     if (!script) {
       throw new Error('Script not found: ' + scriptId);
     }
+    // 执行所基于的修订号（启动时抓取；执行期间被改仍记启动版本，可接受）
+    const runRevision = this.history ? await this.history.lastRevisionOf(scriptId) : undefined;
 
     const budgetMs = normalizeBudgetMs(overrideTimeoutMs ?? script.timeoutMs ?? this.defaultTimeoutMs);
     const runSignal = createRunSignal(signal, budgetMs);
@@ -185,6 +200,31 @@ export class ScriptRunner {
 
       if (result.error) {
         runResult.error = result.error.message;
+      }
+
+      // 执行历史：会话事件已承载完整 Logs，这里只记有界摘要（修订号/调用面/参数/成败/耗时/错误/返回值）。
+      if (this.history) {
+        try {
+          const runRecord: ScriptRunRecord = {
+            scriptId,
+            revision: runRevision,
+            caller: (runSource ?? '').trim().slice(0, 64) || undefined,
+            success: !result.error,
+            executionTime: Date.now() - startTime,
+          };
+          if (hasParams && resolved) runRecord.params = resolved.value;
+          if (result.error?.message) {
+            runRecord.error = truncateText(result.error.message, RUN_ERROR_MAX);
+          }
+          if (result.value !== undefined) {
+            const text = safeStringify(result.value);
+            runRecord.value = truncateText(text, RUN_VALUE_MAX);
+            runRecord.valueTruncated = text.length > RUN_VALUE_MAX;
+          }
+          await this.history.recordRun(scriptId, runRecord);
+        } catch (error) {
+          console.warn('[dsh-script-manager] failed to record run history: ' + (error instanceof Error ? error.message : String(error)));
+        }
       }
 
       return runResult;
@@ -312,5 +352,21 @@ function normalizeEventArgs(args: unknown): unknown {
     return JSON.parse(JSON.stringify(args));
   } catch {
     return String(args);
+  }
+}
+
+/** 截断长文本至上限（原样短文本不动）。 */
+function truncateText(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max);
+}
+
+/** 返回值安全序列化（runtime 返回值本为 lossless JSON；异常兜底 String）。 */
+function safeStringify(value: unknown): string {
+  try {
+    const json = JSON.stringify(value);
+    return json === undefined ? String(value) : json;
+  } catch {
+    return String(value);
   }
 }

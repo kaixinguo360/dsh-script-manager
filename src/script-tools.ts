@@ -9,6 +9,7 @@ import type { Context } from '@deepseek-ai/cordis';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import type { ScriptStore } from './script-store.js';
 import type { ScriptRunner } from './script-runner.js';
+import type { HistoryStore } from './history-store.js';
 import { formatScriptResult } from './format-script-result.js';
 
 /** 工具参数（单操作工具各自的入参）。 */
@@ -18,6 +19,8 @@ interface ToolArgs {
   query?: string;
   tags?: string[];
   limit?: number;
+  offset?: number;
+  includeSnapshot?: boolean;
   timeoutMs?: number;
 }
 
@@ -31,6 +34,7 @@ export function registerScriptTools(
   store: ScriptStore,
   runner: ScriptRunner,
   onChanged?: () => Promise<void> | void,
+  history?: HistoryStore,
 ): () => void {
   const disposers: (() => void)[] = [];
 
@@ -122,7 +126,7 @@ export function registerScriptTools(
       },
       execute: async (args: ToolArgs) => {
         if (!args.script) throw new Error('script required');
-        const created = await store.create(args.script as any);
+        const created = await store.create(args.script as any, { source: 'tool' });
         if (onChanged) await onChanged();
         return created;
       },
@@ -142,7 +146,7 @@ export function registerScriptTools(
       },
       execute: async (args: ToolArgs) => {
         if (!args.scriptId) throw new Error('scriptId required');
-        const updated = await store.update(args.scriptId, args.script || {});
+        const updated = await store.update(args.scriptId, args.script || {}, { source: 'tool' });
         if (onChanged) await onChanged();
         return updated;
       },
@@ -155,7 +159,7 @@ export function registerScriptTools(
       },
       execute: async (args: ToolArgs) => {
         if (!args.scriptId) throw new Error('scriptId required');
-        const ok = await store.delete(args.scriptId);
+        const ok = await store.delete(args.scriptId, { source: 'tool' });
         if (onChanged) await onChanged();
         if (!ok) throw new Error('Script not found: ' + args.scriptId);
         return { success: true };
@@ -169,6 +173,43 @@ export function registerScriptTools(
         tags: { type: 'array', items: { type: 'string' }, description: 'Optional tag filter.' },
       },
       execute: (args: ToolArgs) => store.search(args.query || '', { tags: args.tags }),
+    },
+    {
+      name: 'script_change_history',
+      description: 'Query the change history of custom scripts (create/update/rename with revision number, changed fields and optional full snapshot of each version). Useful to see what changed when and which definition revision a version had. Per-script storage keeps each script separate; deleting a script also deletes its history.',
+      parameters: {
+        scriptId: { type: 'string', description: 'Optional script id filter (omit to query across all scripts).' },
+        limit: { type: 'number', description: 'Optional max entries (default 20, cap 100).' },
+        offset: { type: 'number', description: 'Optional offset into newest-first results.' },
+        includeSnapshot: { type: 'boolean', description: 'Include the full definition snapshot (with code) of each version. Default false to keep responses small.' },
+      },
+      execute: async (args: ToolArgs) => {
+        if (!history) throw new Error('History is disabled (historyEnabled=false)');
+        const limit = clampLimit(args.limit, 20, 100);
+        return history.listChanges({
+          scriptId: args.scriptId || undefined,
+          limit,
+          offset: args.offset,
+          includeSnapshot: args.includeSnapshot === true,
+        });
+      },
+    },
+    {
+      name: 'script_run_history',
+      description: 'Query the execution history of custom scripts (timestamp, revision the script was at when executed, caller, params, success/error, duration, return summary). Useful to see when a script started failing and with which params, and which definition revision each run used.',
+      parameters: {
+        scriptId: { type: 'string', description: 'Optional script id filter (omit to query across all scripts).' },
+        limit: { type: 'number', description: 'Optional max entries (default 20, cap 100).' },
+        offset: { type: 'number', description: 'Optional offset into newest-first results.' },
+      },
+      execute: async (args: ToolArgs) => {
+        if (!history) throw new Error('History is disabled (historyEnabled=false)');
+        return history.listRuns({
+          scriptId: args.scriptId || undefined,
+          limit: clampLimit(args.limit, 20, 100),
+          offset: args.offset,
+        });
+      },
     },
   ];
 
@@ -211,10 +252,16 @@ export function registerScriptTools(
       const result = await runner.run(args.scriptId, exec.signal, exec.agent, exec.token, args.timeoutMs, {
         callId: String(exec.callId),
         rootCallId: String(exec.rootCallId ?? exec.callId),
-      }, args.params as Record<string, unknown> | undefined);
+      }, args.params as Record<string, unknown> | undefined, 'script_run');
       return result;
     },
   })));
 
   return () => { for (const d of disposers) d(); };
+}
+
+/** 限制 limit 参数到合理区间（默认 defaultN，上限 cap）。 */
+function clampLimit(value: unknown, defaultN: number, cap: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return defaultN;
+  return Math.min(Math.floor(value), cap);
 }

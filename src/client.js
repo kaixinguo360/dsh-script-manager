@@ -80,7 +80,7 @@ window.__ModuleLoader__.load({
 			".smp-check{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--dsw-alias-label-primary);min-height:20px;align-self:flex-start}",
 			".smp-form .smp-check{align-self:flex-start!important;display:inline-flex!important}",
 			".smp-form .smp-check input[type=\"checkbox\"]{width:14px!important;max-width:14px!important;min-width:14px!important;height:14px!important;max-height:14px!important;box-sizing:border-box!important;flex:none!important;margin:0!important}",
-			"@media (max-width:640px){.smp-del-narrow{display:none}}",
+			"@media (max-width:640px){.smp-del-narrow{display:none}.smp-edit-icon-narrow{display:none}}",
 			"/* popupSelect（/script 弹窗）：标题不压缩、不换行（按内容完整展示）；要压缩就压缩描述 */",
 			"[role=\"listbox\"] [class$=\"_label\"]{white-space:nowrap!important;text-overflow:clip!important;overflow:visible!important;min-width:auto!important;flex:0 1 auto!important;max-width:none!important}",
 			"[role=\"listbox\"] [class$=\"_detail\"]{flex:1 1 auto!important;min-width:0!important;white-space:nowrap!important;text-overflow:ellipsis!important;overflow:hidden!important}",
@@ -138,7 +138,27 @@ window.__ModuleLoader__.load({
 			".smp-ovl-btn{border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);border-radius:8px;height:30px;padding:0 14px;font-size:13px;cursor:pointer}",
 			".smp-ovl-btn:hover{background:var(--dsw-alias-interactive-bg-hover)}",
 			".smp-ovl-primary{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-primary);color:#fff}",
-			".smp-ovl-primary:hover{background:var(--dsw-alias-state-business-primary-hover,#2a6cf0);color:#fff}"
+			".smp-ovl-primary:hover{background:var(--dsw-alias-state-business-primary-hover,#2a6cf0);color:#fff}",
+			"/* 历史面板 */",
+			".smp-tabs{display:flex;gap:6px;align-items:center}",
+			".smp-tab{display:inline-flex;align-items:center;height:28px;padding:0 12px;font-size:12px;color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;background:transparent;cursor:pointer;white-space:nowrap}",
+			".smp-tab[data-active=\"1\"]{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}",
+			".smp-hlist{display:flex;flex-direction:column;gap:6px;margin-top:2px}",
+			".smp-hrow{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:8px 10px;background:transparent}",
+			".smp-hrow[data-open=\"1\"]{border-color:var(--dsw-alias-state-business-primary)}",
+			".smp-hrow-open{background:var(--dsw-alias-interactive-bg-hover)}",
+			".smp-hact{flex:none;font-size:12px;line-height:16px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}",
+			".smp-hmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;cursor:pointer}",
+			".smp-hline1{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;line-height:16px;color:var(--dsw-alias-label-primary)}",
+			".smp-hmeta{display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:11px;line-height:14px;color:var(--dsw-alias-label-tertiary)}",
+			".smp-hbadge{font-size:10px;line-height:14px;padding:0 5px;border-radius:4px;border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-secondary);white-space:nowrap}",
+			".smp-hok{border-color:var(--dsw-alias-state-success-primary,#2faf5f);color:var(--dsw-alias-state-success-primary,#2faf5f)}",
+			".smp-hbad{color:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary)}",
+			".smp-hdetail{width:100%;box-sizing:border-box;padding:8px;border:1px dashed var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-markdown-code-block);overflow:auto}",
+			".smp-hpre{margin:0;font-family:var(--dsh-font-mono,ui-monospace,Menlo,Consolas,monospace);font-size:11px;line-height:16px;white-space:pre-wrap;word-break:break-all;color:var(--dsw-alias-label-primary)}",
+			".smp-hnote{font-size:11px;color:var(--dsw-alias-label-tertiary);line-height:16px}",
+			".smp-hcode{display:flex;flex-direction:column;gap:6px;min-width:0}",
+			".smp-hcode-title{font-size:11px;color:var(--dsw-alias-label-tertiary);line-height:14px}"
 		].join("");
 		var tagId = "dsh-script-manager/smp.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=\"" + tagId + "\"]") === null) {
@@ -177,6 +197,16 @@ window.__ModuleLoader__.load({
 				},
 				remove: function (id) {
 					return fetch("/api/scripts/" + encodeURIComponent(id), { method: "DELETE" }).then(parse);
+				},
+				history: function (kind, opts) {
+					var q = [];
+					opts = opts || {};
+					if (opts.scriptId) q.push("scriptId=" + encodeURIComponent(opts.scriptId));
+					if (opts.limit) q.push("limit=" + encodeURIComponent(String(opts.limit)));
+					if (opts.offset) q.push("offset=" + encodeURIComponent(String(opts.offset)));
+					if (opts.includeSnapshot) q.push("includeSnapshot=1");
+					var qs = q.length > 0 ? "?" + q.join("&") : "";
+					return fetch("/api/script-history/" + encodeURIComponent(kind) + qs).then(parse);
 				}
 			};
 		}
@@ -525,11 +555,12 @@ window.__ModuleLoader__.load({
 			);
 		}
 
-		// ---- 单行脚本卡片：标题名称 + 副标题 id + 编辑/删除（行内确认） ----
+		// ---- 单行脚本卡片：标题名称 + 副标题 id + 历史/编辑/删除（行内确认） ----
 		function ScriptCard(props) {
 			var script = props.script;
 			var onEdit = props.onEdit;
 			var onDelete = props.onDelete;
+			var onHistory = props.onHistory;
 			var editBusy = props.editBusy;
 			var deleting = props.deleting;
 
@@ -540,8 +571,9 @@ window.__ModuleLoader__.load({
 				),
 				h("div", { className: "smp-actions" },
 					h("span", { className: "smp-actions" },
+						h(P.Button, { variant: "outline", disabled: editBusy, onClick: function () { onHistory(script); } }, "历史"),
 						h(P.Button, { variant: "outline", disabled: editBusy, onClick: function () { onEdit(script); } },
-							h(P.IconEditOutline16, { size: 14 }), editBusy ? " 加载中" : " 编辑")),
+							h(P.IconEditOutline16, { size: 14, className: "smp-edit-icon-narrow" }), editBusy ? " 加载中" : " 编辑")),
 					h("span", { className: "smp-actions smp-del-narrow" },
 						deleting
 							? h("span", { className: "smp-actions", style: { color: "var(--dsw-alias-label-secondary)", fontSize: 12 } },
@@ -552,6 +584,182 @@ window.__ModuleLoader__.load({
 								h(P.IconTrashOutline16, { size: 14 }), " 删除"))
 				)
 			);
+		}
+
+		// ---- 历史面板：执行/变更两页签（变更展开时二次拉取带快照，可与上一版代码对照） ----
+		function ScriptHistoryPanel(props) {
+			var api = props.api;
+			var script = props.script;
+			var kindState = react.useState("runs");
+			var kind = kindState[0];
+			var setKind = kindState[1];
+			var entriesState = react.useState(null);
+			var entries = entriesState[0];
+			var setEntries = entriesState[1];
+			var errState = react.useState(null);
+			var err = errState[0];
+			var setErr = errState[1];
+			var openState = react.useState({});
+			var open = openState[0];
+			var setOpen = openState[1];
+			var snapsState = react.useState(null);
+			var snaps = snapsState[0];
+			var setSnaps = snapsState[1];
+
+			function load(k) {
+				setEntries(null);
+				setErr(null);
+				api.history(k, { scriptId: script.id, limit: 50 }).then(function (data) {
+					if (data && Array.isArray(data.entries)) {
+						setEntries(data.entries);
+						if (data.disabled) setErr("历史未启用（配置 historyEnabled=false）");
+					} else {
+						setErr("响应格式异常");
+						setEntries([]);
+					}
+				}).catch(function (e) {
+					setErr(String((e && e.message) || e));
+					setEntries([]);
+				});
+			}
+			react.useEffect(function () { load(kind); }, [kind]);
+			react.useEffect(function () { setOpen({}); }, [kind]);
+
+			function ensureSnaps() {
+				if (snaps) return Promise.resolve(snaps);
+				return api.history("changes", { scriptId: script.id, limit: 50, includeSnapshot: true })
+					.then(function (data) {
+						var list = data && Array.isArray(data.entries) ? data.entries : [];
+						setSnaps(list);
+						return list;
+					})
+					.catch(function () { return []; });
+			}
+			function toggle(i) {
+				var next = {};
+				for (var k in open) { if (open[k]) next[k] = true; }
+				next[i] = !open[i];
+				setOpen(next);
+			}
+			function toggleChange(i) {
+				if (open[i]) { toggle(i); return; }
+				ensureSnaps().then(function () { toggle(i); });
+			}
+			function fmtTs(ts) {
+				if (!ts) return "";
+				try {
+					var d = new Date(ts);
+					if (isNaN(d.getTime())) return ts;
+					var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+					return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + " " +
+						pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+				} catch (e) { return ts; }
+			}
+			function briefParams(p) {
+				try { return JSON.stringify(p); } catch (e) { return String(p); }
+			}
+			function preBlock(title, text) {
+				if (text === undefined || text === null || text === "") return null;
+				return h("div", { className: "smp-hdetail" },
+					title ? h("div", { className: "smp-hcode-title" }, title) : null,
+					h("pre", { className: "smp-hpre" }, String(text)));
+			}
+
+			var body;
+			if (err && entries === null) {
+				body = h("div", { className: "smp-empty" }, err);
+			} else if (entries === null) {
+				body = h("div", { className: "smp-empty" }, "加载中…");
+			} else if (entries.length === 0) {
+				body = h("div", { className: "smp-empty" }, err || (kind === "runs" ? "暂无执行记录（执行一次 /script 或 script_run 后出现）。" : "暂无变更记录（创建/编辑/改名脚本后出现）。"));
+			} else {
+				body = h("div", { className: "smp-hlist" }, entries.map(function (e, i) {
+					var key = String(i);
+					var isOpen = !!open[key];
+					if (kind === "runs") {
+						var revBadge = h("span", { className: "smp-hbadge" },
+							e.revision !== undefined && e.revision !== null ? "修订 #" + e.revision : "修订 ?");
+						var okBadge = e.success
+							? h("span", { className: "smp-hbadge smp-hok" }, "成功")
+							: h("span", { className: "smp-hbadge smp-hbad" }, "失败");
+						var meta = [];
+						if (e.caller) meta.push(e.caller);
+						if (e.executionTime !== undefined && e.executionTime !== null) meta.push(e.executionTime + "ms");
+						if (e.params && typeof e.params === "object") meta.push("参数 " + briefParams(e.params));
+						meta.push(fmtTs(e.ts));
+						var detail = isOpen ? h("div", { className: "smp-hdetail" },
+							preBlock(null, e.error),
+							preBlock("参数", e.params ? JSON.stringify(e.params, null, 2) : ""),
+							preBlock("返回值", e.value)
+						) : null;
+						return h("div", { className: "smp-hrow" + (isOpen ? " smp-hrow-open" : ""), "data-open": isOpen ? "1" : "0", key: key },
+							h("div", { className: "smp-hmain", onClick: function () { toggle(i); } },
+								h("div", { className: "smp-hline1" }, okBadge, revBadge, h("span", { style: { flex: 1 } }),
+									h("span", { className: "smp-hact" }, isOpen ? "收起" : "展开")),
+								h("div", { className: "smp-hmeta" }, meta.join(" · "))),
+							detail);
+					}
+					// changes
+					var actionBadge = e.action === "create"
+						? h("span", { className: "smp-hbadge smp-hok" }, "创建")
+						: (e.action === "rename"
+							? h("span", { className: "smp-hbadge" }, "改名")
+							: h("span", { className: "smp-hbadge" }, "更新"));
+					var cmeta = [];
+					if (e.source === "web") cmeta.push("Web UI");
+					else if (e.source === "tool") cmeta.push("Agent 工具");
+					if (e.fields && e.fields.length > 0) cmeta.push("字段: " + e.fields.join(", "));
+					cmeta.push(fmtTs(e.ts));
+					var cdetail = null;
+					if (isOpen) {
+						var curSnap = null;
+						if (snaps) {
+							for (var si = 0; si < snaps.length; si++) {
+								if (snaps[si].revision === e.revision && snaps[si].snapshot) { curSnap = snaps[si].snapshot; break; }
+							}
+						}
+						var prevSnap = null;
+						if (snaps && e.revision > 1) {
+							for (var pi = 0; pi < snaps.length; pi++) {
+								if (snaps[pi].revision === e.revision - 1 && snaps[pi].snapshot) { prevSnap = snaps[pi].snapshot; break; }
+							}
+						}
+						var blocks = [];
+						if (curSnap) {
+							blocks.push(h("div", { className: "smp-hcode" },
+								h("div", { className: "smp-hcode-title" }, "修订 #" + e.revision + "（" + e.action + "）code"),
+								h("pre", { className: "smp-hpre" }, curSnap.code || "")));
+							if (prevSnap) {
+								blocks.push(h("div", { className: "smp-hcode" },
+									h("div", { className: "smp-hcode-title" }, "修订 #" + (e.revision - 1) + "（上一版）code"),
+									h("pre", { className: "smp-hpre" }, prevSnap.code || "")));
+							} else {
+								blocks.push(h("div", { className: "smp-hnote" }, "上一版快照不可用（可能已被保留策略清理；可调大 historyChangesMax）。"));
+							}
+						} else {
+							blocks.push(h("div", { className: "smp-hnote" }, "快照加载失败或不可用。"));
+						}
+						cdetail = h("div", { className: "smp-hdetail" }, blocks);
+					}
+					return h("div", { className: "smp-hrow" + (isOpen ? " smp-hrow-open" : ""), "data-open": isOpen ? "1" : "0", key: key },
+						h("div", { className: "smp-hmain", onClick: function () { toggleChange(i); } },
+							h("div", { className: "smp-hline1" }, actionBadge,
+								h("span", { className: "smp-hbadge" }, "修订 #" + e.revision),
+								h("span", { style: { flex: 1 } }),
+								h("span", { className: "smp-hact" }, isOpen ? "收起" : "展开")),
+							h("div", { className: "smp-hmeta" }, cmeta.join(" · "))),
+						cdetail);
+				}));
+			}
+
+			return h("div", { className: "smp-wrap" },
+				h("div", { className: "smp-head" },
+					h("span", { className: "smp-title" }, script.id + " 的历史"),
+					h("span", { className: "smp-actions smp-tabs" },
+						h("button", { type: "button", className: "smp-tab" + (kind === "runs" ? "" : ""), "data-active": kind === "runs" ? "1" : "0", onClick: function () { setKind("runs"); } }, "执行历史"),
+						h("button", { type: "button", className: "smp-tab", "data-active": kind === "changes" ? "1" : "0", onClick: function () { setKind("changes"); } }, "变更历史"))),
+				err && entries !== null ? h("div", { className: "smp-notice" }, err) : null,
+				body);
 		}
 
 		// ---- 管理 section：列表 ⇄ 编辑视图原位替换 ----
@@ -579,6 +787,12 @@ window.__ModuleLoader__.load({
 			var editBusyState = react.useState(false);
 			var editBusy = editBusyState[0];
 			var setEditBusy = editBusyState[1];
+			var historyForState = react.useState(null);
+			var historyFor = historyForState[0];
+			var setHistoryFor = historyForState[1];
+
+			function beginHistory(s) { setHistoryFor(s); setView("history"); }
+			function backFromHistory() { setView("list"); setHistoryFor(null); }
 
 			function load() {
 				setError(null);
@@ -657,7 +871,8 @@ window.__ModuleLoader__.load({
 									editBusy: editBusy,
 									deleting: deleteId === s.id,
 									onEdit: beginEdit,
-									onDelete: confirmDelete
+									onDelete: confirmDelete,
+									onHistory: beginHistory
 								});
 							})
 						)
@@ -666,18 +881,22 @@ window.__ModuleLoader__.load({
 
 			return h("div", { className: "smp-wrap" },
 				h("div", { className: "smp-head" },
-					h("span", { className: "smp-title" }, "脚本管理"),
+					h("span", { className: "smp-title" },
+						view === "history" && historyFor ? ("历史：" + historyFor.name) : "脚本管理"),
 					view === "list"
 						? h("span", { className: "smp-actions" },
 							h(P.Button, { variant: "outline", onClick: load }, "刷新"),
 							h(P.Button, { variant: "primary", onClick: beginNew },
 								h(P.IconPlusOutline16, { size: 14 }), " 新建脚本"))
-						: null
+						: (view === "history"
+							? h("span", { className: "smp-actions" }, h(P.Button, { variant: "outline", onClick: backFromHistory }, "返回"))
+							: null)
 				),
 				error ? h("div", { className: "smp-error" }, error) : null,
 				notice ? h("div", { className: "smp-notice" }, notice) : null,
 				view === "new" ? h(ScriptForm, { api: api, onDone: formDone, onCancel: cancelForm }) : null,
 				view === "edit" && editing ? h(ScriptForm, { api: api, initial: editing, onDone: formDone, onCancel: cancelForm, onDeleted: formDeleted }) : null,
+				view === "history" && historyFor ? h(ScriptHistoryPanel, { api: api, script: historyFor }) : null,
 				view === "list" ? listView : null
 			);
 		}

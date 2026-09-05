@@ -16,6 +16,7 @@
 
 import type { ScriptStore } from '../script-store.js';
 import { ValidationError } from '../script-store.js';
+import type { HistoryStore } from '../history-store.js';
 
 interface WebServerRoute {
   kind: 'exact' | 'prefixes';
@@ -58,6 +59,7 @@ export function registerScriptRoutes(
   injected: { webServer?: WebServerContext },
   store: ScriptStore,
   onChanged?: () => Promise<void> | void,
+  history?: HistoryStore,
 ): () => void {
   const webServer = injected?.webServer;
   if (!webServer || typeof webServer.register !== 'function') {
@@ -93,7 +95,7 @@ export function registerScriptRoutes(
         if (method === 'POST') {
           if (id !== null) return json(res, 400, { error: 'POST /api/scripts does not accept an id path segment' });
           const body = await readBody(req);
-          const script = await store.create(body as any);
+          const script = await store.create(body as any, { source: 'web' });
           if (onChanged) await onChanged();
           return json(res, 200, script);
         }
@@ -101,14 +103,14 @@ export function registerScriptRoutes(
         if (method === 'PUT') {
           if (id === null) return json(res, 400, { error: 'PUT /api/scripts requires /<id>' });
           const body = await readBody(req);
-          const script = await store.update(id, body as any);
+          const script = await store.update(id, body as any, { source: 'web' });
           if (onChanged) await onChanged();
           return json(res, 200, script);
         }
 
         if (method === 'DELETE') {
           if (id === null) return json(res, 400, { error: 'DELETE /api/scripts requires /<id>' });
-          const ok = await store.delete(id);
+          const ok = await store.delete(id, { source: 'web' });
           if (!ok) return json(res, 404, { error: 'Script not found: ' + id });
           if (onChanged) await onChanged();
           return json(res, 200, { success: true });
@@ -118,6 +120,42 @@ export function registerScriptRoutes(
       } catch (error: any) {
         const status = (error instanceof SyntaxError || error instanceof ValidationError) ? 400 : 500;
         json(res, status, { error: error instanceof Error ? error.message : String(error) });
+      }
+    },
+  }));
+
+  // 历史查询端点：GET /api/script-history/<changes|runs>?scriptId=&limit=&offset=&includeSnapshot=1
+  disposers.push(webServer.register({
+    kind: 'prefixes',
+    path: '/api/script-history',
+    handler: async (req: any, res: any) => {
+      const method = (req.method ?? 'GET').toUpperCase();
+      const pathname = new URL(req.url ?? '/', 'http://x').pathname;
+      const rest = pathname === '/api/script-history' ? '' : pathname.slice('/api/script-history/'.length);
+      const kind = rest === '' ? 'runs' : decodeURIComponent(rest);
+      if (method !== 'GET') {
+        return json(res, 405, { error: 'Method not allowed: ' + method });
+      }
+      if (kind !== 'changes' && kind !== 'runs') {
+        return json(res, 400, { error: 'History kind must be changes or runs: ' + kind });
+      }
+      try {
+        const query = parseQuery(req);
+        const options = {
+          scriptId: query.scriptId ? decodeURIComponent(query.scriptId) : undefined,
+          limit: query.limit !== undefined ? (Number(query.limit) || 50) : 50,
+          offset: query.offset !== undefined ? (Number(query.offset) || 0) : undefined,
+          includeSnapshot: query.includeSnapshot === '1' || query.includeSnapshot === 'true',
+        };
+        if (!history) {
+          return json(res, 200, { kind, entries: [], disabled: true });
+        }
+        const entries = kind === 'changes'
+          ? await history.listChanges(options)
+          : await history.listRuns(options);
+        return json(res, 200, { kind, entries });
+      } catch (error: any) {
+        json(res, 500, { error: error instanceof Error ? error.message : String(error) });
       }
     },
   }));

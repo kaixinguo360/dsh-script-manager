@@ -5,8 +5,11 @@
 
 import type { Context } from '@deepseek-ai/cordis';
 import Schema from '@deepseek-ai/schemastery';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { ScriptStore } from './script-store.js';
 import { ScriptRunner } from './script-runner.js';
+import { HistoryStore } from './history-store.js';
 import { registerScriptCommand, registerCreateScriptCommand } from './script-command.js';
 import { registerScriptTools } from './script-tools.js';
 import { registerScriptRoutes } from './web/routes.js';
@@ -18,6 +21,10 @@ export const inject = ['tools', 'commands', 'codeRuntime', 'systemPrompt'];
 export const Config = Schema.object({
   scriptsDir: Schema.string().default('~/.dsh/scripts').description('脚本存储目录'),
   maxExecutionTime: Schema.number().default(0).description('默认脚本执行超时（毫秒）；0 = 不限制（脚本级 timeoutMs / 调用级 script_run timeoutMs 可覆盖）'),
+  historyEnabled: Schema.boolean().default(true).description('是否记录脚本变更/执行历史（false = 完全禁用，不建目录、不写文件、查询工具/端点返回空）'),
+  stateDir: Schema.string().default('').description('历史数据目录（与脚本本体存储分离）。留空 = <scriptsDir>/.state；可填任意绝对路径，如 ~/.local/share/dsh/script-state'),
+  historyChangesMax: Schema.number().default(200).description('每脚本变更历史(changes.jsonl)保留条数；超限压缩保留最新 N 条'),
+  historyRunsMax: Schema.number().default(500).description('每脚本执行历史(runs.jsonl)保留条数；超限压缩保留最新 N 条'),
 });
 
 export type Config = typeof Config.infer;
@@ -30,6 +37,7 @@ const SCRIPT_TOOLS_GUIDANCE = [
   '- script_create: define a new script (async TypeScript body; tools.* such as tools.read / tools.bash are available inside).',
   '- script_update / script_delete: maintain existing scripts.',
   '- script_run: execute a script by its id (its result is returned; formatScriptResult output also appears in the conversation).',
+  '- script_change_history / script_run_history: query per-script change/execution history. Each change is a revision (1, 2, 3...) with a full snapshot of that version; each run records the revision it executed plus caller/params/success/error/duration. Use them when debugging what changed or when a script started failing (tie run.revision to the matching change snapshot).',
   'Prefer creating a script when the same multi-step operation recurs or would otherwise be tedious to repeat.',
   '',
   'PTC (programmatic tool call) scripts: each script is a standalone, self-contained execution unit — an async TypeScript body that runs with the code runtime, has tools.* bindings (tools.read, tools.bash, ...) available inside, executes without a model roundtrip, and should return a lossless-JSON value (plus console.log for logs). Scripts live under ~/.dsh/scripts, are managed via the script_* tools, can be registered as direct agent tools (registerAsTool + toolName), and are run via script_run or /script <id>. Write scripts that are self-contained and reusable (resolve inputs inside the script), keep them generic, and always verify with script_run after creating or updating.',
@@ -61,10 +69,28 @@ export function apply(ctx: Context, config: Partial<Config> = {}): void {
   const resolved = {
     scriptsDir: config.scriptsDir ?? '~/.dsh/scripts',
     maxExecutionTime: config.maxExecutionTime ?? 0,
+    historyEnabled: config.historyEnabled !== false,
+    stateDir: config.stateDir ?? '',
+    historyChangesMax: config.historyChangesMax ?? 200,
+    historyRunsMax: config.historyRunsMax ?? 500,
   };
 
-  const store = new ScriptStore(resolved.scriptsDir);
-  const runner = new ScriptRunner(store, ctx, { defaultTimeoutMs: resolved.maxExecutionTime });
+  // 历史层与脚本本体分离：默认 <scriptsDir 展开后>/.state，或配置的任意绝对路径
+  let history: HistoryStore | undefined;
+  if (resolved.historyEnabled) {
+    const scriptsDir = expandHome(resolved.scriptsDir);
+    const stateDir = expandHome(resolved.stateDir.trim() !== '' ? resolved.stateDir.trim() : join(scriptsDir, '.state'));
+    history = new HistoryStore(stateDir, {
+      changesMax: resolved.historyChangesMax,
+      runsMax: resolved.historyRunsMax,
+    });
+  }
+
+  const store = new ScriptStore(resolved.scriptsDir, history);
+  const runner = new ScriptRunner(store, ctx, {
+    defaultTimeoutMs: resolved.maxExecutionTime,
+    ...(history !== undefined ? { history } : {}),
+  });
   const toolRegistry = new ScriptToolRegistry(ctx, store, runner);
 
   // 注册/卸载动态工具（按 registerAsTool/toolName）；写操作后同步
@@ -74,7 +100,9 @@ export function apply(ctx: Context, config: Partial<Config> = {}): void {
     }
   };
 
-  store.init()
+  const initTasks = [store.init()];
+  if (history !== undefined) initTasks.push(history.init());
+  Promise.all(initTasks)
     .then(syncDynamicTools)
     .catch(err => {
       console.error("[" + name + "] Failed to initialize script store:", err);
@@ -82,11 +110,11 @@ export function apply(ctx: Context, config: Partial<Config> = {}): void {
 
   const unregisterCommand = registerScriptCommand(ctx, store, runner);
   const unregisterCreateCommand = registerCreateScriptCommand(ctx);
-  const unregisterTools = registerScriptTools(ctx, store, runner, syncDynamicTools);
+  const unregisterTools = registerScriptTools(ctx, store, runner, syncDynamicTools, history);
 
   // Register HTTP API routes for the client management UI
   ctx.inject(['webServer'], (injected: any) => {
-    return registerScriptRoutes(injected, store, syncDynamicTools);
+    return registerScriptRoutes(injected, store, syncDynamicTools, history);
   });
 
   ctx.effect(() => {
@@ -97,4 +125,8 @@ export function apply(ctx: Context, config: Partial<Config> = {}): void {
       toolRegistry.dispose();
     };
   });
+}
+/** 展开 ~ 为用户主目录（配置路径可能含 ~）。 */
+function expandHome(path: string): string {
+  return path.startsWith('~') ? join(homedir(), path.slice(1)) : path;
 }

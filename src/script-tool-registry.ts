@@ -95,6 +95,7 @@ export class ScriptToolRegistry {
                   }
                 : undefined,
               params,
+              'dynamic-tool:' + toolName,
             );
             return result;
           },

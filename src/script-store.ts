@@ -7,7 +7,8 @@
 import { readFile, writeFile, mkdir, readdir, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
-import type { ScriptDefinition, ScriptMetadata, ScriptSummary } from './types.js';
+import type { ScriptDefinition, ScriptMetadata, ScriptSummary, ScriptWriteMeta } from './types.js';
+import type { HistoryStore } from './history-store.js';
 import { isValidToolName } from './script-tool-registry.js';
 import { normalizeScriptParameters, type NormalizedScriptParameter } from './script-params.js';
 
@@ -74,7 +75,7 @@ export class ScriptStore {
   private indexFile: string;
   private index: Map<string, ScriptSummary> = new Map();
 
-  constructor(scriptsDir: string) {
+  constructor(scriptsDir: string, private history?: HistoryStore) {
     this.scriptsDir = expandPath(scriptsDir);
     this.indexFile = join(this.scriptsDir, 'index.json');
   }
@@ -147,8 +148,8 @@ export class ScriptStore {
     }
   }
 
-  /** 创建脚本（全字段校验） */
-  async create(script: Omit<ScriptDefinition, 'metadata'>): Promise<ScriptDefinition> {
+  /** 创建脚本（全字段校验）；成功后向历史记录 create 变更（revision=1）。 */
+  async create(script: Omit<ScriptDefinition, 'metadata'>, meta?: ScriptWriteMeta): Promise<ScriptDefinition> {
     // id：非空、合法字符、不重复（避免覆盖同名脚本与路径穿越）
     const id = (script.id ?? '').trim();
     if (!id) throw new ValidationError('Script id is required');
@@ -207,11 +208,19 @@ export class ScriptStore {
     await writeFile(this.getScriptPath(id), JSON.stringify(fullScript, null, 2), 'utf-8');
     this.index.set(id, this.toSummary(fullScript));
     await this.saveIndex();
+    // 变更历史：创建即第 1 版。若残留旧历史目录（上次删除未清干净），先整删再记，revision 从 1。
+    if (this.history) {
+      await this.history.deleteScriptHistory(id);
+      await this.history.recordChange(id, {
+        scriptId: id, revision: 1, action: 'create', source: meta?.source,
+        fields: definitionFields(fullScript), snapshot: fullScript,
+      });
+    }
     return fullScript;
   }
 
-  /** 更新脚本；patch.id 变更时执行重命名（旧文件删除、新文件写入、索引同步） */
-  async update(scriptId: string, patch: Partial<ScriptDefinition>): Promise<ScriptDefinition> {
+  /** 更新脚本；patch.id 变更时执行重命名（旧文件删除、新文件写入、索引同步）。成功后记录变更（含改名随迁历史）。 */
+  async update(scriptId: string, patch: Partial<ScriptDefinition>, meta?: ScriptWriteMeta): Promise<ScriptDefinition> {
     const existing = await this.get(scriptId);
     if (!existing) throw new Error("Script not found: " + scriptId);
     const nextId = (patch.id !== undefined ? String(patch.id).trim() : scriptId) || scriptId;
@@ -264,15 +273,38 @@ export class ScriptStore {
     this.index.delete(scriptId);
     this.index.set(nextId, this.toSummary(updated));
     await this.saveIndex();
+    // 变更历史：改名 = 历史目录随迁 + 记一条 rename（revision 连续）；普通 update 记 diff 字段与快照。
+    if (this.history) {
+      if (nextId !== scriptId) {
+        await this.history.renameScriptHistory(scriptId, nextId);
+        await this.history.recordChange(nextId, {
+          scriptId: nextId,
+          revision: await this.history.nextRevision(nextId),
+          action: 'rename', source: meta?.source,
+          fields: diffFields(existing, updated),
+          snapshot: updated,
+        });
+      } else {
+        await this.history.recordChange(scriptId, {
+          scriptId,
+          revision: await this.history.nextRevision(scriptId),
+          action: 'update', source: meta?.source,
+          fields: diffFields(existing, updated),
+          snapshot: updated,
+        });
+      }
+    }
     return updated;
   }
 
-  /** 删除脚本 */
-  async delete(scriptId: string): Promise<boolean> {
+  /** 删除脚本；成功后同步整删该脚本历史目录（清理失败仅 warn，不阻塞删除）。 */
+  async delete(scriptId: string, meta?: ScriptWriteMeta): Promise<boolean> {
     try {
       await unlink(this.getScriptPath(scriptId));
       this.index.delete(scriptId);
       await this.saveIndex();
+      void meta;
+      if (this.history) await this.history.deleteScriptHistory(scriptId);
       return true;
     } catch {
       return false;
@@ -321,3 +353,25 @@ export class ScriptStore {
     if (summary) { summary.metadata = { ...script.metadata }; await this.saveIndex(); }
   }
 }
+/** 参与快照 diff 的字段：全部顶层定义字段，剔除 metadata（其 updatedAt 每次写都变，非定义变化）。 */
+const DIFF_EXCLUDE = new Set(['metadata']);
+
+/** 变更涉及的顶层字段名（create 用：全部定义字段）。 */
+function definitionFields(script: ScriptDefinition): string[] {
+  return Object.keys(script).filter(k => !DIFF_EXCLUDE.has(k));
+}
+
+/** 两次定义间实际变化的顶层字段（不含 metadata；无变化时记 updatedAt 以保留一条触摸记录）。 */
+function diffFields(before: ScriptDefinition, after: ScriptDefinition): string[] {
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  const changed: string[] = [];
+  for (const key of keys) {
+    if (DIFF_EXCLUDE.has(key)) continue;
+    if (JSON.stringify((before as Record<string, unknown>)[key]) !== JSON.stringify((after as Record<string, unknown>)[key])) {
+      changed.push(key);
+    }
+  }
+  if (changed.length === 0) changed.push('updatedAt');
+  return changed;
+}
+
