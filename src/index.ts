@@ -27,7 +27,8 @@ export const Config = Schema.object({
   historyRunsMax: Schema.number().default(500).description('每脚本执行历史(runs.jsonl)保留条数；超限压缩保留最新 N 条'),
 });
 
-export type Config = typeof Config.infer;
+/** 插件配置输出类型：由 Config schema 的调用签名推导（Schema 可调用并返回解析后的对象）。 */
+export type Config = ReturnType<typeof Config>;
 
 /** 注入系统提示：让 agent 常态化知道 script_* 工具的存在与适用时机。 */
 const SCRIPT_TOOLS_GUIDANCE = [

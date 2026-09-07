@@ -45,9 +45,13 @@ dsh plugin add /path/to/dsh-script-manager
 // 执行脚本
 tools.script_run({ scriptId: "my-script" })
 
-// 管理脚本
-tools.script_manage({ action: "list" })
-tools.script_manage({ action: "create", script: { id: "...", ... } })
+// 管理脚本（script_* 为拆分后的独立单操作工具）
+tools.script_list()
+tools.script_get({ scriptId: "my-script" })
+tools.script_create({ script: { id: "my-script", name: "My Script", code: "..." } })
+tools.script_update({ scriptId: "my-script", script: { name: "Renamed" } })
+tools.script_delete({ scriptId: "my-script" })
+tools.script_search({ query: "git" })
 ```
 
 ### 脚本创建
@@ -193,7 +197,6 @@ tools.git_update({ repoPath: "~/work/my-repo" })
       config:
         scriptsDir: ~/.dsh/scripts
         maxExecutionTime: 0      # 默认执行超时(ms)；0 = 不限制，脚本级/调用级可覆盖
-        enableWebUI: true
         historyEnabled: true     # 是否记录脚本变更/执行历史；false = 完全禁用
         stateDir: ""             # 历史数据目录；留空 = <scriptsDir>/.state，可填任意绝对路径彻底分离
         historyChangesMax: 200   # 每脚本变更历史保留条数（超限压缩，保留最新 N 条）

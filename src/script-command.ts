@@ -161,7 +161,7 @@ export function registerScriptCommand(
               invocation.signal,
               agent,
               parentToken,
-              jsonArgs.timeoutMs,
+              undefined,
               { callId: _callId, rootCallId: _callId },
               jsonArgs.params,
               '/script',

@@ -106,14 +106,6 @@ export interface ScriptManageArgs {
   limit?: number;
 }
 
-/** 插件配置 */
-export interface PluginConfig {
-  scriptsDir: string;
-  /** 默认执行超时预算（毫秒）；0 = 不限制（脚本级/调用级可单独覆盖）。 */
-  maxExecutionTime: number;
-  enableWebUI: boolean;
-}
-
 /* ===== 脚本历史（与脚本本体存储分离；按脚本分储于 stateDir/<scriptId>/） ===== */
 
 /** 变更来源（入口面）：REST(Web UI)=web；script_* 工具=tool；未知留空。 */

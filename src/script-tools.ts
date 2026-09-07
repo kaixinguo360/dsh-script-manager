@@ -7,6 +7,8 @@
 
 import type { Context } from '@deepseek-ai/cordis';
 import { defineTool } from '@deepseek-ai/dsh-tools';
+import type { JsonValue } from '@deepseek-ai/dsh-tools';
+import type { ContentBlock } from '@deepseek-ai/dsh-llm';
 import type { ScriptStore } from './script-store.js';
 import type { ScriptRunner } from './script-runner.js';
 import type { HistoryStore } from './history-store.js';
@@ -24,9 +26,22 @@ interface ToolArgs {
   timeoutMs?: number;
 }
 
-/** 通用 JSON 输出渲染。 */
-function jsonOutput() {
-  return { schema: { type: 'json' }, render: (_a: unknown, v: unknown) => [{ type: 'json', value: v }] };
+/** 通用 JSON 输出渲染：schema 字面量驱动 defineTool 的 O=json 推断；render 以 text 块承载 JSON
+ * （宿主 LLM adapter 仅把 text 块拼进模型可见内容，其余块类型会被丢弃，故不能用自定义 json 块）。 */
+function jsonOutput(): { schema: { type: 'json' }; render: (args: unknown, value: JsonValue) => ContentBlock[] } {
+  return {
+    schema: { type: 'json' },
+    render: (_a: unknown, v: JsonValue) => [{ type: 'text', text: jsonToText(v) }],
+  };
+}
+/** JsonValue → 文本（undefined 兜底空串）。 */
+function jsonToText(v: JsonValue): string {
+  try {
+    const text = JSON.stringify(v, null, 2);
+    return text === undefined ? '' : text;
+  } catch {
+    return String(v);
+  }
 }
 
 export function registerScriptTools(
@@ -219,7 +234,8 @@ export function registerScriptTools(
       description: def.description,
       parameters: def.parameters as any,
       output: jsonOutput(),
-      async execute(args: any) { return def.execute(args as ToolArgs); },
+      // store/history 返回值均为可序列化 JSON（自 JSON 文件解析而来），此处经断言对齐 defineTool 的 json 输出契约
+      async execute(args: any) { return def.execute(args as ToolArgs) as unknown as Promise<JsonValue>; },
     })));
   }
 
@@ -253,7 +269,7 @@ export function registerScriptTools(
         callId: String(exec.callId),
         rootCallId: String(exec.rootCallId ?? exec.callId),
       }, args.params as Record<string, unknown> | undefined, 'script_run');
-      return result;
+      return result as unknown as JsonValue;
     },
   })));
 

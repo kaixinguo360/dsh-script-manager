@@ -22,6 +22,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import { CallId, createAssistantMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm';
+import type { ToolCallBlock } from '@deepseek-ai/dsh-llm';
 import type { ToolExecutionResult, ToolExecutionToken } from '@deepseek-ai/dsh-tools';
 
 interface SessionLike {
@@ -79,7 +80,7 @@ export async function executeToolCallWithEvents(
   // 3. 写入 assistant/message（合成 tool-call block，与模型输出结构一致：
   //    id/name/arguments，其中 arguments 是 JSON 字符串）
   const callId = CallId('script-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
-  const toolCallBlock = {
+  const toolCallBlock: ToolCallBlock = {
     type: 'tool-call',
     id: callId,
     name: toolName,

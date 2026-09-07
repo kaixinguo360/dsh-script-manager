@@ -5,8 +5,9 @@
 
 import type { Context } from '@deepseek-ai/cordis';
 import { CallId } from '@deepseek-ai/dsh-llm';
-import type { Agent, ToolExecutionToken } from '@deepseek-ai/dsh-tools';
-import type { CodeBindingFunction, CodeBindingNamespace } from '@deepseek-ai/dsh-code-runtime';
+import type { Agent } from '@deepseek-ai/dsh-agent';
+import type { ToolExecutionToken } from '@deepseek-ai/dsh-tools';
+import type { CodeBindingFunction, CodeBindingNamespace, CodeJsonValue } from '@deepseek-ai/dsh-code-runtime';
 import type { ScriptStore } from './script-store.js';
 import type { HistoryStore } from './history-store.js';
 import type { ScriptRunRecord } from './types.js';
@@ -163,7 +164,7 @@ export class ScriptRunner {
 
       const bindings: CodeBindingNamespace[] = [{
         global: 'tools',
-        functions: this.createToolBindings(agent, parentToken, runSignal.signal, dispatchParent, dispatchRoot),
+        functions: this.createToolBindings(runSignal.signal, agent, parentToken, dispatchParent, dispatchRoot),
         errorClass: { name: 'ToolCallError', memberNameProperty: 'toolName' },
       }];
 
@@ -257,9 +258,9 @@ export class ScriptRunner {
    *    internals as nested tool cards under the outer script_run call.
    */
   private createToolBindings(
+    signal: AbortSignal,
     agent?: Agent,
     parentToken?: ToolExecutionToken,
-    signal?: AbortSignal,
     parentCallId?: string,
     rootCallId?: string,
   ): Record<string, CodeBindingFunction> {
@@ -291,12 +292,12 @@ export class ScriptRunner {
         try {
           const result = await this.ctx.tools.execute({
             callId: subCallId,
-            rootCallId: rootCallId as never,
+            ...(rootCallId !== undefined && rootCallId !== '' ? { rootCallId: CallId(rootCallId) } : {}),
             name: schema.name,
             arguments: args,
             agent,
-            parent: parentToken,
-            ...(signal !== undefined ? { signal } : {}),
+            ...(parentToken !== undefined ? { parent: parentToken } : {}),
+            signal,
           });
           settled = result.isError
             ? {
@@ -333,7 +334,7 @@ export class ScriptRunner {
         if (settled.isError) {
           throw new Error(settled.message ?? 'tool call failed');
         }
-        return settled.value;
+        return settled.value as CodeJsonValue;
       };
     }
     return toolBindings;

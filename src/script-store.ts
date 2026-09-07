@@ -101,17 +101,18 @@ export class ScriptStore {
   }
 
   /** Remove undefined properties from an object (lossless JSON requirement) */
-  private stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  private stripUndefined<T>(obj: T): T {
+    if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return obj;
     const cleaned: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
       if (value === undefined) continue;
       if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-        cleaned[key] = this.stripUndefined(value as Record<string, unknown>);
+        cleaned[key] = this.stripUndefined(value);
       } else {
         cleaned[key] = value;
       }
     }
-    return cleaned as T;
+    return cleaned as unknown as T;
   }
 
   /** 保存索引文件 */
@@ -261,10 +262,10 @@ export class ScriptStore {
       ...(parametersPatch !== undefined ? { parameters: parametersPatch } : {}),
       metadata: { ...existing.metadata, ...patch.metadata, updatedAt: new Date().toISOString() },
     } as ScriptDefinition;
-    if (clearParameters) delete (updated as Record<string, unknown>).parameters;
+    if (clearParameters) delete (updated as unknown as Record<string, unknown>).parameters;
     // 显式置空串删除：展开删除三个键(若有)
     for (const key of ['expectedOutcome', 'successCriteria', 'failureGuidance'] as const) {
-      if (patch[key] !== undefined && contractPatch[key] === undefined) delete (updated as Record<string, unknown>)[key];
+      if (patch[key] !== undefined && contractPatch[key] === undefined) delete (updated as unknown as Record<string, unknown>)[key];
     }
     await writeFile(this.getScriptPath(nextId), JSON.stringify(updated, null, 2), 'utf-8');
     if (nextId !== scriptId) {
@@ -367,7 +368,7 @@ function diffFields(before: ScriptDefinition, after: ScriptDefinition): string[]
   const changed: string[] = [];
   for (const key of keys) {
     if (DIFF_EXCLUDE.has(key)) continue;
-    if (JSON.stringify((before as Record<string, unknown>)[key]) !== JSON.stringify((after as Record<string, unknown>)[key])) {
+    if (JSON.stringify((before as unknown as Record<string, unknown>)[key]) !== JSON.stringify((after as unknown as Record<string, unknown>)[key])) {
       changed.push(key);
     }
   }
