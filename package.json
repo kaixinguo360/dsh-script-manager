@@ -34,6 +34,7 @@
     }
   },
   "scripts": {
+    "prepare": "tsdown && node build-client.mjs",
     "build": "tsdown && node build-client.mjs",
     "build:server": "tsdown",
     "build:client": "node build-client.mjs",
