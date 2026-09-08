@@ -1,5 +1,4 @@
 node_modules/
 .pnpm-store/
-lib/
 .DS_Store
 *.log
