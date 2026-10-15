@@ -90,20 +90,16 @@ export interface ScriptRunResult {
   expectedOutcome?: string;
   successCriteria?: string;
   failureGuidance?: string;
+  /** 失败类别（PTC 运行时错误 kind；预算到期归一为 'timeout'）。 */
+  errorKind?: string;
   /** 本次实际生效参数（输入合并默认；仅带参脚本）。 */
   params?: Record<string, string | number | boolean>;
   /** 传入但未声明的参数名（忽略不阻塞，展示供审查）。 */
   unknownParams?: string[];
-}
-
-/** 脚本管理操作参数 */
-export interface ScriptManageArgs {
-  action: 'create' | 'update' | 'delete' | 'get' | 'list' | 'search';
-  scriptId?: string;
-  script?: Partial<ScriptDefinition>;
-  query?: string;
-  tags?: string[];
-  limit?: number;
+  /** 生效的脚本执行预算（毫秒）。 */
+  timeoutMs?: number;
+  /** 本次执行应用的文件策略事实。 */
+  sandbox?: { mode: string; denied: boolean; enforcement?: string };
 }
 
 /* ===== 脚本历史（与脚本本体存储分离；按脚本分储于 stateDir/<scriptId>/） ===== */
@@ -157,6 +153,10 @@ export interface ScriptHistoryRun {
   executionTime: number;
   /** 错误消息（截断）。 */
   error?: string;
+  /** 失败类别（PTC 运行时错误 kind；预算到期归一为 'timeout'）。 */
+  errorKind?: string;
+  /** 本次执行是否有文件操作被沙箱拒绝。 */
+  sandboxDenied?: boolean;
   /** 返回值 JSON 摘要（截断）。 */
   value?: string;
   valueTruncated?: boolean;

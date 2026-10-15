@@ -14,9 +14,10 @@ import { registerScriptCommand, registerCreateScriptCommand } from './script-com
 import { registerScriptTools } from './script-tools.js';
 import { registerScriptRoutes } from './web/routes.js';
 import { ScriptToolRegistry } from './script-tool-registry.js';
+import { ScriptTransport } from './script-transport.js';
 
 export const name = 'dsh-script-manager';
-export const inject = ['tools', 'commands', 'codeRuntime', 'systemPrompt'];
+export const inject = ['tools', 'commands', 'systemPrompt'];
 
 export const Config = Schema.object({
   scriptsDir: Schema.string().default('~/.dsh/scripts').description('脚本存储目录'),
@@ -41,7 +42,7 @@ const SCRIPT_TOOLS_GUIDANCE = [
   '- script_change_history / script_run_history: query per-script change/execution history. Each change is a revision (1, 2, 3...) with a full snapshot of that version; each run records the revision it executed plus caller/params/success/error/duration. Use them when debugging what changed or when a script started failing (tie run.revision to the matching change snapshot).',
   'Prefer creating a script when the same multi-step operation recurs or would otherwise be tedious to repeat.',
   '',
-  'PTC (programmatic tool call) scripts: each script is a standalone, self-contained execution unit — an async TypeScript body that runs with the code runtime, has tools.* bindings (tools.read, tools.bash, ...) available inside, executes without a model roundtrip, and should return a lossless-JSON value (plus console.log for logs). Scripts live under ~/.dsh/scripts, are managed via the script_* tools, can be registered as direct agent tools (registerAsTool + toolName), and are run via script_run or /script <id>. Write scripts that are self-contained and reusable (resolve inputs inside the script), keep them generic, and always verify with script_run after creating or updating.',
+  'PTC (programmatic tool call) scripts: each script is a standalone, self-contained execution unit — an async TypeScript body that runs on the PTC runtime, has tools.* bindings (tools.read, tools.bash, ...) available inside, executes without a model roundtrip, and should return a lossless-JSON value (plus console.log for logs). Scripts live under ~/.dsh/scripts, are managed via the script_* tools, can be registered as direct agent tools (registerAsTool + toolName), and are run via script_run or /script <id>. Write scripts that are self-contained and reusable (resolve inputs inside the script), keep them generic, and always verify with script_run after creating or updating.',
   '',
   'When the user asks to distill/summarize an operation or workflow into a reusable script (e.g. "把…总结为脚本", "固化为可复用脚本"), follow this flow:',
   '1. First script_search / script_list to check whether a similar script already exists — do not duplicate.',
@@ -60,12 +61,8 @@ const SCRIPT_TOOLS_GUIDANCE = [
 ].join('');
 
 export function apply(ctx: Context, config: Partial<Config> = {}): void {
-  // 引导 agent 使用 script_* 工具（在系统提示中常驻）
-  try {
-    (ctx as any).systemPrompt?.section?.({ name: 'dsh-script-manager', order: 210, text: SCRIPT_TOOLS_GUIDANCE });
-  } catch (error) {
-    console.error('[' + name + '] failed to register system prompt section:', error);
-  }
+  // 引导 agent 使用 script_* 工具（在系统提示中常驻；排在 tools SDK 段之后）
+  ctx.systemPrompt.section({ name: 'dsh-script-manager', order: 5100, text: SCRIPT_TOOLS_GUIDANCE });
 
   const resolved = {
     scriptsDir: config.scriptsDir ?? '~/.dsh/scripts',
@@ -109,7 +106,11 @@ export function apply(ctx: Context, config: Partial<Config> = {}): void {
       console.error("[" + name + "] Failed to initialize script store:", err);
     });
 
-  const unregisterCommand = registerScriptCommand(ctx, store, runner);
+  // /script 的传输层：把用户触发的执行投递到框架原生的工具回合（见 script-transport）
+  const transport = new ScriptTransport(ctx);
+  const uninstallTransport = transport.install();
+
+  const unregisterCommand = registerScriptCommand(ctx, store, transport);
   const unregisterCreateCommand = registerCreateScriptCommand(ctx);
   const unregisterTools = registerScriptTools(ctx, store, runner, syncDynamicTools, history);
 
@@ -120,6 +121,7 @@ export function apply(ctx: Context, config: Partial<Config> = {}): void {
 
   ctx.effect(() => {
     return () => {
+      uninstallTransport();
       unregisterCommand();
       unregisterCreateCommand();
       unregisterTools();

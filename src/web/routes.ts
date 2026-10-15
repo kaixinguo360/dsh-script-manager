@@ -19,7 +19,7 @@ import { ValidationError } from '../script-store.js';
 import type { HistoryStore } from '../history-store.js';
 
 interface WebServerRoute {
-  kind: 'exact' | 'prefixes';
+  kind: 'exact' | 'prefix';
   path: string;
   handler: (req: any, res: any) => void | Promise<void>;
 }
@@ -68,7 +68,7 @@ export function registerScriptRoutes(
   const disposers: (() => void)[] = [];
 
   disposers.push(webServer.register({
-    kind: 'prefixes',
+    kind: 'prefix',
     path: '/api/scripts',
     handler: async (req: any, res: any) => {
       const method = (req.method ?? 'GET').toUpperCase();
@@ -126,7 +126,7 @@ export function registerScriptRoutes(
 
   // 历史查询端点：GET /api/script-history/<changes|runs>?scriptId=&limit=&offset=&includeSnapshot=1
   disposers.push(webServer.register({
-    kind: 'prefixes',
+    kind: 'prefix',
     path: '/api/script-history',
     handler: async (req: any, res: any) => {
       const method = (req.method ?? 'GET').toUpperCase();

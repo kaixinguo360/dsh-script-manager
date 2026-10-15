@@ -23,6 +23,14 @@ export function formatScriptResult(result: Record<string, unknown>): string {
   parts.push("Result: " + (result.success ? "Success" : "Failed"));
   parts.push("Time: " + String(result.executionTime || 0) + "ms");
 
+  // 文件策略事实（PTC 运行时上报；有值才输出）
+  const sandbox = result.sandbox as { mode?: unknown; denied?: unknown; enforcement?: unknown } | undefined;
+  if (sandbox !== undefined && sandbox !== null && typeof sandbox === 'object') {
+    parts.push("Sandbox: mode=" + String(sandbox.mode ?? '') +
+      "; denied=" + (sandbox.denied === true ? 'true' : 'false') +
+      (sandbox.enforcement !== undefined ? "; enforcement=" + String(sandbox.enforcement) : ''));
+  }
+
   // 执行契约段（有值才输出；先于 Logs，便于先对照预期再检查过程）
   const hasContract = result.expectedOutcome !== undefined || result.successCriteria !== undefined || result.failureGuidance !== undefined;
   if (result.expectedOutcome !== undefined) {
@@ -60,7 +68,7 @@ export function formatScriptResult(result: Record<string, unknown>): string {
   }
 
   if (result.error) {
-    parts.push("Error:");
+    parts.push("Error:" + (result.errorKind !== undefined ? " (" + String(result.errorKind) + ")" : ""));
     parts.push(String(result.error));
   }
 

@@ -7,12 +7,13 @@
 
 import type { Context } from '@deepseek-ai/cordis';
 import { defineTool } from '@deepseek-ai/dsh-tools';
-import type { JsonValue } from '@deepseek-ai/dsh-tools';
+import type { JsonValue } from '@deepseek-ai/dsh-util-values';
 import type { ContentBlock } from '@deepseek-ai/dsh-llm';
 import type { ScriptStore } from './script-store.js';
 import type { ScriptRunner } from './script-runner.js';
 import type { HistoryStore } from './history-store.js';
 import { formatScriptResult } from './format-script-result.js';
+import { SCRIPT_DISPATCH_CALL_PREFIX } from './script-transport.js';
 
 /** 工具参数（单操作工具各自的入参）。 */
 interface ToolArgs {
@@ -263,13 +264,19 @@ export function registerScriptTools(
       render: (_a: unknown, v: unknown) => [{ type: 'text', text: formatScriptResult(v as Record<string, unknown>) }],
     },
     async execute(args: any, exec: any) {
-      // 透传外层执行身份：内层 tools.* 子分发事件挂在本 script_run 调用之下，
-      // Web GUI 据此把脚本内部调用渲染为 PTC 同款嵌套层级（rootCallId 需一致）。
-      const result = await runner.run(args.scriptId, exec.signal, exec.agent, exec.token, args.timeoutMs, {
-        callId: String(exec.callId),
-        rootCallId: String(exec.rootCallId ?? exec.callId),
-      }, args.params as Record<string, unknown> | undefined, 'script_run');
-      return result as unknown as JsonValue;
+      // 透传本次执行身份：内层 tools.* 子分发事件挂在本 script_run 调用之下，
+      // Web GUI 据此把脚本内部调用渲染为 PTC 同款嵌套层级。
+      // 调用 id 带派发前缀说明这次执行由 /script 的合成回合投递而来，据此记录入口面，
+      // 使执行历史能区分"用户触发"与"模型主动调用"。
+      const runSource = String(exec.callId).startsWith(SCRIPT_DISPATCH_CALL_PREFIX) ? '/script' : 'script_run';
+      const result = await runner.run(
+        args.scriptId,
+        exec,
+        args.params as Record<string, unknown> | undefined,
+        runSource,
+        args.timeoutMs,
+      );
+      return result as JsonValue;
     },
   })));
 

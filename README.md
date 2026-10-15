@@ -9,11 +9,12 @@ DSH 自定义操作脚本管理插件
 - **脚本管理**：通过 Web UI 或 Agent 工具创建、编辑、删除脚本
 - **用户调用**：通过 `/script <脚本名>` slash command 调用脚本
 - **Agent 调用**：通过 `tools.script_run({ scriptId })` 工具调用脚本
-- **执行引擎**：复用 DSH 的 `ctx.codeRuntime`，保持脚本执行环境与原本的PTC模式完全一致
+- **执行引擎**：复用 DSH 的 `ctx.ptcRuntime`，并在 `cwd` 与文件策略上对齐 `run_code`，
+  脚本执行环境与 PTC 模式完全一致（同一 seam、同一绑定形态、同一沙箱授权）
 - **上下文注入**：脚本源代码和执行结果注入对话，供 agent 审查
-- **行为一致**：两种调用方式的行为与输出格式 100% 一致
-- **层级执行展示**：脚本内层 `tools.*` 调用以 log-only 的 `tool/code-dispatch-start` /
-  `tool/code-dispatch` 事件写入会话（与 run_code/PTC 同一契约，不进入模型上下文），
+- **行为一致**：两种调用方式产生的会话记录与输出格式 100% 一致
+- **层级执行展示**：脚本内层 `tools.*` 调用以 log-only 的 `tool/ptc-dispatch-start` /
+  `tool/ptc-dispatch` 事件写入会话（与 run_code/PTC 同一契约，不进入模型上下文），
   Web GUI 将脚本内部调用渲染为 PTC 同款嵌套工具卡片
 - **变更历史**：脚本的每次创建/编辑/改名记一条变更日志（时间、入口面、修订号、变更字段，
   以及该版本完整定义快照含 code），可回溯"上一版长什么样 / 改坏了什么"
@@ -29,6 +30,10 @@ DSH 自定义操作脚本管理插件
 dsh plugin add /path/to/dsh-script-manager
 ```
 
+要求 DSH `0.2.0-rc.2`（peerDependencies 按该版本声明），且部署中挂载了 PTC 运行时
+（`@deepseek-ai/dsh-ptc-runtime-node`，由 `@deepseek-ai/dsh-base` 默认提供）。
+脚本管理面在缺少 PTC 运行时的部署中照常可用，仅在执行脚本时报出可操作的错误。
+
 ## 使用方法
 
 ### 用户调用
@@ -38,6 +43,12 @@ dsh plugin add /path/to/dsh-script-manager
 ```
 /script <脚本名>
 ```
+
+命令本身不直接执行脚本，而是把这次执行投递到框架原生的工具回合：登记一次待派发意图，
+在该会话的下一次模型请求上短路（不产生任何 provider 请求与 token 消耗），直接产出一次
+`script_run` 工具调用，随后由 DSH 的 agent loop 以真实执行身份运行。因此 `/script` 与
+`script_run` 在会话里留下完全同构的记录（真实的 assistant/tool 消息、真实的父调用身份、
+脚本内层调用挂在其下的嵌套卡片），脚本执行完 agent 会就结果继续回复。
 
 ### Agent 调用
 
@@ -102,7 +113,20 @@ return { name: pkg.name };
   2. 脚本级：脚本定义里的 `timeoutMs` 字段（正整数毫秒）
   3. 插件配置 `maxExecutionTime`（毫秒）
 - 超时会中止整个脚本（含正在运行的内部 `tools.*` 调用），错误消息形如
-  `script execution exceeded timeout of Nms`。
+  `script execution exceeded timeout of Nms`；结果中同时给出失败类别（`errorKind`）。
+- 预算由插件自持（运行时侧 deadline 显式置空），因此"超时中止整个脚本含其内部调用"
+  的语义与调用级/脚本级/插件级三级优先级都由同一处实现，不会被运行时的默认值覆盖。
+
+### 执行环境与文件策略
+
+脚本与 `run_code` 走同一个 PTC 运行时，并被授予同样的执行条件：
+
+- 工作目录取会话的 `cwd`；
+- 文件策略由 `ctx.sandboxPolicy` 按会话解析后传入，故脚本的文件权限与 `run_code`
+  完全一致——脚本不会成为比 PTC 更宽松的旁路（会话处于受限模式时，脚本内的文件操作同样受限）。
+
+执行结果会带上本次实际应用的文件策略事实（`Sandbox: mode=...; denied=...`），
+若有操作被沙箱拒绝则一并记录到执行历史（`sandboxDenied`）。
 
 ### 执行预期结果（expectedOutcome / successCriteria / failureGuidance）
 
@@ -207,5 +231,26 @@ tools.git_update({ repoPath: "~/work/my-repo" })
 
 ```bash
 pnpm install
-pnpm build
+pnpm build      # tsdown（服务端）+ build-client.mjs（客户端 bundle）
+pnpm typecheck
 ```
+
+### 客户端 bundle 的三条硬约束
+
+`src/client.js` 是手写的浏览器 bundle，由 `build-client.mjs` 复制到 `lib/client.js`。
+以下三条必须与宿主约定一致，否则插件在浏览器侧**完全不装配或不渲染**
+（表现为页面白屏、或该设置页区块空白，且服务端没有任何报错指向它）：
+
+1. **注册 id 必须是包的裸名**（与 `package.json` 的 `name` 一致，即 `dsh-script-manager`）。
+   宿主按包名合成启动图行，浏览器加载器以该 id 查工厂；写成 `<name>/client` 之类的
+   旧式拼写会让该行找不到工厂。
+2. **`P.<Name>` 取的每个 primitives 原子必须存在于所构建的版本**。
+   图标在新版本中会改名（例如 `IconTrashOutline16` → `IconTrashOutlineRegular`）；
+   取到不存在的名字会得到 `undefined` 作为元素类型，渲染时抛错并拖垮挂载它的槽位条目。
+3. **`inject` 只声明真正使用的服务**。`inject` 未满足时 cordis 不会调用 `apply`，
+   一个拼错的条目会让整个客户端面静默失效。
+
+第 1、2 条已由 `build-client.mjs` 在构建期强制校验，违反即构建失败并给出可操作报错；
+第 3 条是本 bundle 自身的纪律。另外 `dsh.client.inject` 只应列**真正带客户端面**的包
+（声明了 `dsh.client` 的包）——它表达"这些包的工厂要先到位"，指向无客户端面的包
+虽被静默跳过，但属无效声明。
